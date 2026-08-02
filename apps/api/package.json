@@ -5,18 +5,30 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
+    "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "dotenv -e ../../.env -- vitest run"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/jwt": "^9.0.0",
+    "@fastify/rate-limit": "^10.1.0",
     "@vinted-hunter/database": "workspace:*",
-    "fastify": "^5.2.0"
+    "@vinted-hunter/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "fastify": "^5.2.0",
+    "fastify-plugin": "^5.0.0",
+    "fastify-type-provider-zod": "^4.0.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.0",
+    "dotenv-cli": "^8.0.0",
     "typescript": "^5.7.0",
     "tsx": "^4.19.0",
     "vitest": "^2.1.0"
