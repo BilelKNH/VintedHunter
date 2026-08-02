@@ -1,11 +1,5 @@
-import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-
-function buildApp() {
-  const app = Fastify();
-  app.get("/health", async () => ({ status: "ok", service: "api" }));
-  return app;
-}
+import { buildApp } from "./app.js";
 
 describe("GET /health", () => {
   it("returns ok status", async () => {

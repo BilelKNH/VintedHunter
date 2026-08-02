@@ -1,12 +1,8 @@
-import Fastify from "fastify";
+import { buildApp } from "./app.js";
 
-const app = Fastify({ logger: true });
+const app = buildApp();
 
-app.get("/health", async () => ({ status: "ok", service: "api" }));
-
-const port = Number(process.env.API_PORT ?? 3001);
-
-app.listen({ port, host: "0.0.0.0" }).catch((error) => {
+app.listen({ port: app.config.API_PORT, host: "0.0.0.0" }).catch((error) => {
   app.log.error(error);
   process.exit(1);
 });

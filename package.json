@@ -18,7 +18,8 @@
     "prepare": "husky",
     "db:generate": "pnpm --filter @vinted-hunter/database run generate",
     "db:migrate": "pnpm --filter @vinted-hunter/database run migrate:dev",
-    "db:studio": "pnpm --filter @vinted-hunter/database run studio"
+    "db:studio": "pnpm --filter @vinted-hunter/database run studio",
+    "db:seed": "pnpm --filter @vinted-hunter/database run seed"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
