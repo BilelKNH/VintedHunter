@@ -41,6 +41,8 @@ model User {
   searches      Search[]
   notifications Notification[]
   purchases     Purchase[]
+  refreshTokens RefreshToken[]
+  favorites     Favorite[]
 
   @@map("users")
 }
@@ -88,6 +90,7 @@ model Listing {
   priceHistory  PriceHistory[]
   purchases     Purchase[]
   notifications Notification[]
+  favoritedBy   Favorite[]
 
   @@index([sellerId])
   @@index([source])
@@ -168,4 +171,30 @@ model Notification {
   @@index([userId])
   @@index([listingId])
   @@map("notifications")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([listingId])
+  @@map("favorites")
 }
