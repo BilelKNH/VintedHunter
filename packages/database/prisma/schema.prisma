@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  PRO
+  ENTERPRISE
+}
+
+enum Marketplace {
+  VINTED
+}
+
+enum PurchaseStatus {
+  PENDING
+  SOLD
+  CANCELLED
+}
+
+enum NotificationChannel {
+  DISCORD
+  TELEGRAM
+  EMAIL
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password      String
+  firstname     String?
+  role          UserRole        @default(USER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  searches      Search[]
+  notifications Notification[]
+  purchases     Purchase[]
+
+  @@map("users")
+}
+
+model Search {
+  id               String   @id @default(uuid())
+  userId           String
+  name             String
+  brands           String[]
+  categories       String[]
+  sizes            String[]
+  keywords         String[]
+  excludedKeywords String[]
+  minPrice         Float?
+  maxPrice         Float?
+  minimumScore     Int      @default(70)
+  frequency        Int
+  enabled          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("searches")
+}
+
+model Listing {
+  id            String         @id @default(uuid())
+  externalId    String         @unique
+  source        Marketplace
+  title         String
+  description   String?
+  brand         String?
+  category      String?
+  size          String?
+  condition     String?
+  price         Float
+  currency      String
+  url           String
+  images        String[]
+  sellerId      String?
+  publishedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  seller        Seller?        @relation(fields: [sellerId], references: [id])
+  analysis      Analysis?
+  priceHistory  PriceHistory[]
+  purchases     Purchase[]
+  notifications Notification[]
+
+  @@index([sellerId])
+  @@index([source])
+  @@map("listings")
+}
+
+model Seller {
+  id            String    @id @default(uuid())
+  externalId    String    @unique
+  username      String
+  rating        Float?
+  reviews       Int?
+  accountAge    Int?
+  totalListings Int?
+  riskScore     Int?
+  listings      Listing[]
+
+  @@map("sellers")
+}
+
+model Analysis {
+  id                String   @id @default(uuid())
+  listingId         String   @unique
+  score             Int
+  priceScore        Int
+  brandScore        Int
+  conditionScore    Int
+  liquidityScore    Int
+  authenticityScore Int
+  estimatedValue    Float
+  estimatedProfit   Float
+  roi               Float
+  explanation       Json
+  createdAt         DateTime @default(now())
+  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("analyses")
+}
+
+model PriceHistory {
+  id        String   @id @default(uuid())
+  listingId String
+  price     Float
+  createdAt DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("price_history")
+}
+
+model Purchase {
+  id            String         @id @default(uuid())
+  userId        String
+  listingId     String
+  purchasePrice Float
+  sellingPrice  Float?
+  profit        Float?
+  status        PurchaseStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing       Listing        @relation(fields: [listingId], references: [id])
+
+  @@index([userId])
+  @@index([listingId])
+  @@map("purchases")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  listingId String
+  channel   NotificationChannel
+  sent      Boolean             @default(false)
+  createdAt DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing             @relation(fields: [listingId], references: [id])
+
+  @@index([userId])
+  @@index([listingId])
+  @@map("notifications")
+}
