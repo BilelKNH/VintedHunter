@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0a0a0b;
+  --color-bg-surface: #131316;
+  --color-bg-elevated: #1b1b1f;
+  --color-border-default: #232328;
+  --color-accent-primary: #f5793a;
+  --color-accent-primary-muted: #f5793a66;
+  --color-accent-secondary: #2dd4bf;
+  --color-accent-secondary-muted: #2dd4bf66;
+  --color-danger: #f5484b;
+  --color-danger-muted: #f5484b66;
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: #9b9ba3;
+  --color-text-tertiary: #5c5c63;
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --animate-scan-shimmer: scan-shimmer 1.8s ease-in-out infinite;
+
+  @keyframes scan-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--color-border-default);
+}
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  position: relative;
+}
+
+/* Low-opacity fixed dotted-grid texture — the "radar/surveillance" atmosphere motif. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(circle, var(--color-text-tertiary) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.035;
+  pointer-events: none;
+}
+
+::selection {
+  background-color: var(--color-accent-primary);
+  color: var(--color-bg-base);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-default);
+  border-radius: 9999px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+
+.font-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
