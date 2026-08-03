@@ -42,6 +42,8 @@ describe("listings.service", () => {
       find: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
+      findAllByUserId: vi.fn(),
+      countByUserId: vi.fn(),
     };
     service = createListingsService({ listingsRepository, favoritesRepository });
   });
@@ -71,6 +73,23 @@ describe("listings.service", () => {
       vi.mocked(listingsRepository.findById).mockResolvedValue(null);
 
       await expect(service.getById("missing")).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("listFavorites", () => {
+    it("computes skip/take and returns the user's favorited listings with pagination meta", async () => {
+      const items = [fakeListing()];
+      vi.mocked(favoritesRepository.findAllByUserId).mockResolvedValue(items);
+      vi.mocked(favoritesRepository.countByUserId).mockResolvedValue(1);
+
+      const result = await service.listFavorites("user-1", 2, 10);
+
+      expect(favoritesRepository.findAllByUserId).toHaveBeenCalledWith("user-1", {
+        skip: 10,
+        take: 10,
+      });
+      expect(favoritesRepository.countByUserId).toHaveBeenCalledWith("user-1");
+      expect(result).toEqual({ items, total: 1, page: 2, limit: 10 });
     });
   });
 

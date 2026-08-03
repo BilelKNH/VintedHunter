@@ -1,11 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { idParamSchema } from "@vinted-hunter/shared";
+import { createSearchSchema, idParamSchema, updateSearchSchema } from "@vinted-hunter/shared";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { success } from "../../utils/response.js";
 import { createSearchesRepository } from "./searches.repository.js";
 import { createSearchesService } from "./searches.service.js";
-import { createSearchSchema, updateSearchSchema } from "./searches.schemas.js";
 
 export async function searchesController(fastify: FastifyInstance): Promise<void> {
   const app = fastify.withTypeProvider<ZodTypeProvider>();

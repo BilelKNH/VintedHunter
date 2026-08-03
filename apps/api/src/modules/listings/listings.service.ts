@@ -34,6 +34,15 @@ export function createListingsService({ listingsRepository, favoritesRepository 
       return listing;
     },
 
+    async listFavorites(userId: string, page: number, limit: number): Promise<ListingsPage> {
+      const skip = (page - 1) * limit;
+      const [items, total] = await Promise.all([
+        favoritesRepository.findAllByUserId(userId, { skip, take: limit }),
+        favoritesRepository.countByUserId(userId),
+      ]);
+      return { items, total, page, limit };
+    },
+
     async toggleFavorite(userId: string, listingId: string): Promise<{ favorited: boolean }> {
       const listing = await listingsRepository.findById(listingId);
       if (!listing) {

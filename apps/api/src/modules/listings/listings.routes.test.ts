@@ -57,6 +57,68 @@ describe("GET /listings/:id", () => {
   });
 });
 
+describe("GET /listings/favorites", () => {
+  it("requires authentication", async () => {
+    const response = await testApp.app.inject({ method: "GET", url: "/listings/favorites" });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("returns only the authenticated user's favorited listings, paginated", async () => {
+    const tokenA = await registerUser("fan-a@example.com");
+    const tokenB = await registerUser("fan-b@example.com");
+    const listingA = await createTestListing(testApp.prisma, { title: "Favorited by A" });
+    const listingB = await createTestListing(testApp.prisma, { title: "Favorited by B" });
+
+    await testApp.app.inject({
+      method: "POST",
+      url: `/listings/${listingA.id}/favorite`,
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    await testApp.app.inject({
+      method: "POST",
+      url: `/listings/${listingB.id}/favorite`,
+      headers: { authorization: `Bearer ${tokenB}` },
+    });
+
+    const response = await testApp.app.inject({
+      method: "GET",
+      url: "/listings/favorites",
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe(listingA.id);
+    expect(body.meta).toEqual({ total: 1, page: 1, limit: 20 });
+  });
+
+  it("no longer includes an unfavorited listing", async () => {
+    const token = await registerUser("fan-c@example.com");
+    const listing = await createTestListing(testApp.prisma);
+
+    await testApp.app.inject({
+      method: "POST",
+      url: `/listings/${listing.id}/favorite`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    await testApp.app.inject({
+      method: "POST",
+      url: `/listings/${listing.id}/favorite`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    const response = await testApp.app.inject({
+      method: "GET",
+      url: "/listings/favorites",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.json().data).toHaveLength(0);
+  });
+});
+
 describe("POST /listings/:id/favorite", () => {
   it("requires authentication", async () => {
     const listing = await createTestListing(testApp.prisma);
