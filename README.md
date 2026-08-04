@@ -1,5 +1,7 @@
 # Vinted Opportunity Hunter AI
 
+[![CI](https://github.com/BilelKNH/VintedHunter/actions/workflows/ci.yml/badge.svg)](https://github.com/BilelKNH/VintedHunter/actions/workflows/ci.yml)
+
 AI-powered resale opportunity detection platform for Vinted. It watches saved searches, scores
 every new listing for how good a deal it actually is, and pushes an alert the moment something
 worth buying shows up.
@@ -26,10 +28,11 @@ Full product spec: [SPECIFICATION.md](./SPECIFICATION.md).
 | 4 — Crawler | Automatic Vinted listing collection (`packages/crawler`, `apps/worker`) |
 | 5 — Intelligence | Scoring engine, market price estimation, Discord/Telegram alerts |
 | 6 — Vision AI | Claude Vision photo analysis, OCR, anti-counterfeiting signals |
+| 7 — Optimisation | CI (GitHub Actions), Dependabot, Docker hardening, restart/health policies |
 
-Embeddings/vector search, ML/RL, trend detection, a recommendation engine, and a chatbot
-(SPECIFICATION.md §59-70) are intentionally deferred — see `docs/README.md` for the reasoning
-behind each phase's scope decisions.
+Embeddings/vector search, ML/RL, trend detection, a recommendation engine, a chatbot
+(SPECIFICATION.md §59-70), and error tracking (Sentry or similar) are intentionally deferred —
+see `docs/README.md` for the reasoning behind each phase's scope decisions.
 
 ## Architecture
 

@@ -11,5 +11,10 @@ RUN pnpm --filter @vinted-hunter/database exec prisma generate
 # (correctly, to avoid stale artifacts), so it must be generated fresh inside the image.
 RUN pnpm exec turbo run build --filter=api
 
+# Run as the non-root `node` user node:22-alpine already ships (uid 1000) — the built process
+# only ever needs read access to what's already on disk, no runtime writes to /repo.
+RUN chown -R node:node /repo
+USER node
+
 EXPOSE 3001
 CMD ["pnpm", "--filter", "api", "start"]

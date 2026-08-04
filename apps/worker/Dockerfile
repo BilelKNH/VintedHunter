@@ -13,4 +13,8 @@ RUN pnpm exec turbo run build --filter=worker
 # at runtime — node:22-alpine needs --with-deps for the shared libs Chromium links against.
 RUN pnpm --filter worker exec playwright install --with-deps chromium
 
+# Stays root (unlike apps/api and apps/dashboard) — Chromium's sandbox needs either root or
+# extra seccomp/user-namespace setup to launch as an unprivileged user in a container, and
+# getting that wrong silently breaks the crawler. Not worth the risk for a non-root win here
+# without dedicated testing; revisit if this ever needs to run under a stricter host policy.
 CMD ["pnpm", "--filter", "worker", "start"]

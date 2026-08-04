@@ -89,3 +89,43 @@ training, trend/seasonal detection, recommendation engine, and chatbot (§63-70)
 
 Feature-flagged by `ANTHROPIC_API_KEY`: unset it and vision analysis is skipped entirely,
 identical to how notification channels degrade when their env vars are absent.
+
+## Phase 7 — Optimisation
+
+SPECIFICATION.md §105 scopes this as "monitoring, tests, CI/CD, sécurité" with a "version
+production" deliverable. Scoped pragmatically for a solo, self-hosted tool rather than an
+enterprise setup — see the decisions below for what was deliberately left out and why.
+
+- **CI (`.github/workflows/ci.yml`)** — runs on every push/PR to `main`/`develop`: a
+  `lint-and-typecheck` job (no DB needed, `prisma generate` only needs the schema file), and a
+  `test` job with real Postgres/Redis service containers. Tests run in the same two-phase order
+  established manually across Phases 4-6: pure packages (`ai-engine`, `analyzer`, `crawler`,
+  `notifications`, `pricing-engine`, `shared`, `dashboard`) in parallel via `turbo run test`,
+  then `worker` and `api` sequentially — they share one Postgres `test` schema with no
+  cross-package concurrency guard, so running them in parallel flakes (documented above in the
+  Phase 5 section already, now enforced by CI instead of just a comment). `tests/e2e`
+  (Playwright, needs the full docker-compose stack running) is **not** wired into CI yet — a
+  reasonable next step, deliberately left out here to ship a CI pass that's reliable from day
+  one rather than flaky.
+- **`pnpm audit`** runs in CI but never fails the build (`|| true`) — visibility into known
+  vulnerabilities without blocking merges on transitive advisories nobody can act on
+  immediately.
+- **Dependabot** (`.github/dependabot.yml`) — weekly PRs for npm/pnpm deps, each app's
+  Dockerfile base image, and the GitHub Actions versions themselves.
+- **Docker hardening** — `apps/api` and `apps/dashboard`'s Dockerfiles now `USER node` (build as
+  root, `chown` once, then drop to node:22-alpine's built-in non-root user before `CMD`) — a
+  plain Fastify/Next.js process needs no root privileges at runtime. `apps/worker` deliberately
+  **stays root**: its Playwright/Chromium session needs either root or dedicated
+  seccomp/user-namespace setup to sandbox correctly in a container, and getting that wrong
+  silently breaks the crawler — not worth the risk without hardware to actually test it against.
+- **docker-compose resilience** — `api`/`dashboard`/`worker` all gained `restart: unless-stopped`
+  (postgres/redis already had it); `api`/`dashboard` gained container healthchecks (`wget` against
+  `/health` and `/` respectively — no extra package needed, alpine's busybox ships `wget`).
+  `worker` has no HTTP server to healthcheck against — process-liveness plus the restart policy
+  is the coverage it gets; a real readiness signal would need a dedicated heartbeat endpoint,
+  not worth adding just for this.
+- **Monitoring — deliberately skipped**: error tracking (e.g. Sentry) was considered and
+  explicitly declined — it needs an external account/DSN per app, and the existing structured
+  logging (pino in `apps/api`) plus the `/health` endpoint plus the new restart policies already
+  cover a solo self-hosted deployment's actual needs. Revisit if this ever needs real uptime
+  guarantees or a team operating it.

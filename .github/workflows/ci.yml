@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # Non-secret, CI-only values — never used outside this workflow. Real deployments must set
+  # their own secrets via .env (see .env.example).
+  DATABASE_URL: postgresql://vinted:vinted@localhost:5432/vinted_hunter?schema=public
+  DATABASE_URL_TEST: postgresql://vinted:vinted@localhost:5432/vinted_hunter?schema=test
+  REDIS_URL: redis://localhost:6379
+  NODE_ENV: test
+  JWT_SECRET: ci-only-placeholder-secret-never-used-outside-github-actions
+  COOKIE_SECRET: ci-only-placeholder-secret-never-used-outside-github-actions
+  CORS_ORIGIN: http://localhost:3000
+  VINTED_BASE_URL: https://www.vinted.fr
+  MAX_WORKERS: '5'
+  REQUEST_DELAY_MIN: '3000'
+  REQUEST_DELAY_MAX: '8000'
+  CACHE_DURATION: 24H
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Typecheck needs the generated Prisma Client types — schema-only, no live DB required.
+      - run: pnpm --filter @vinted-hunter/database exec prisma generate
+
+      - run: pnpm exec turbo run lint typecheck
+
+      # Non-blocking: flags known vulnerabilities in the dependency tree without failing CI on
+      # transitive advisories nobody can act on immediately. Read the output; don't ignore it.
+      - name: pnpm audit (report only)
+        run: pnpm audit --prod || true
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vinted
+          POSTGRES_PASSWORD: vinted
+          POSTGRES_DB: vinted_hunter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vinted"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @vinted-hunter/database exec prisma generate
+
+      # apps/worker and apps/api's test scripts load ../../.env via dotenv-cli — write one from
+      # this job's env vars so local-dev-style `pnpm --filter <pkg> test` works unmodified in CI.
+      - name: Write CI .env
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=${{ env.DATABASE_URL }}
+          DATABASE_URL_TEST=${{ env.DATABASE_URL_TEST }}
+          REDIS_URL=${{ env.REDIS_URL }}
+          NODE_ENV=${{ env.NODE_ENV }}
+          JWT_SECRET=${{ env.JWT_SECRET }}
+          COOKIE_SECRET=${{ env.COOKIE_SECRET }}
+          CORS_ORIGIN=${{ env.CORS_ORIGIN }}
+          VINTED_BASE_URL=${{ env.VINTED_BASE_URL }}
+          MAX_WORKERS=${{ env.MAX_WORKERS }}
+          REQUEST_DELAY_MIN=${{ env.REQUEST_DELAY_MIN }}
+          REQUEST_DELAY_MAX=${{ env.REQUEST_DELAY_MAX }}
+          CACHE_DURATION=${{ env.CACHE_DURATION }}
+          NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+          ANTHROPIC_API_KEY=
+          OPENAI_API_KEY=
+          VISION_MODEL=claude-haiku-4-5
+          DISCORD_WEBHOOK=
+          TELEGRAM_TOKEN=
+          TELEGRAM_CHAT_ID=
+          EOF
+
+      # Pure packages have no shared DB state and can run in parallel via turbo.
+      - name: Test pure packages
+        run: >
+          pnpm exec turbo run test
+          --filter=@vinted-hunter/ai-engine
+          --filter=@vinted-hunter/analyzer
+          --filter=@vinted-hunter/crawler
+          --filter=@vinted-hunter/notifications
+          --filter=@vinted-hunter/pricing-engine
+          --filter=@vinted-hunter/shared
+          --filter=dashboard
+
+      # worker and api share one Postgres `test` schema with no cross-package concurrency
+      # guard — must run sequentially, not via a parallel `turbo run test`, or their
+      # afterEach cleanups race each other (see docs/README.md).
+      - name: Test worker
+        run: pnpm --filter worker test
+
+      - name: Test api
+        run: pnpm --filter api test

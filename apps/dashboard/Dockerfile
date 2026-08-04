@@ -16,5 +16,10 @@ RUN pnpm install --frozen-lockfile
 # apps/api/Dockerfile for why this can't just be `pnpm --filter dashboard build`.
 RUN pnpm exec turbo run build --filter=dashboard
 
+# Run as the non-root `node` user node:22-alpine already ships (uid 1000) — Next's production
+# server only ever needs read access to the already-built .next output, no runtime writes.
+RUN chown -R node:node /repo
+USER node
+
 EXPOSE 3000
 CMD ["pnpm", "--filter", "dashboard", "start"]

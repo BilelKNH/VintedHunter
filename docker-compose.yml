@@ -33,6 +33,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://vinted:vinted@postgres:5432/vinted_hunter?schema=public
@@ -44,6 +45,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, not localhost — alpine's resolver prefers ::1 for "localhost" and Fastify
+      # only binds IPv4 here, so "localhost" spuriously reports unhealthy despite the app
+      # being fine (confirmed empirically against this exact image).
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   dashboard:
     build:
@@ -51,16 +61,25 @@ services:
       dockerfile: apps/dashboard/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3001
+    restart: unless-stopped
     env_file: .env
     ports:
       - "3000:3000"
     depends_on:
       - api
+    healthcheck:
+      # 127.0.0.1, not localhost — see the api service's healthcheck comment above.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   worker:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://vinted:vinted@postgres:5432/vinted_hunter?schema=public
@@ -70,6 +89,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # No HTTP healthcheck — apps/worker has no server (pure BullMQ workers). Docker's default
+    # process-liveness check plus `restart: unless-stopped` already covers a crashed process;
+    # a real readiness signal would need a dedicated heartbeat endpoint, which isn't worth
+    # adding just for this.
 
 volumes:
   postgres_data:
