@@ -9,8 +9,6 @@ RUN pnpm --filter @vinted-hunter/database exec prisma generate
 # Uses turbo's build-graph — see apps/api/Dockerfile for why this can't just be
 # `pnpm --filter worker build` once worker actually imports @vinted-hunter/database.
 RUN pnpm exec turbo run build --filter=worker
-# Chromium binary the crawler's Playwright session (src/browser/playwright-session.ts) launches
-# at runtime — node:22-alpine needs --with-deps for the shared libs Chromium links against.
 RUN pnpm --filter worker exec playwright install --with-deps chromium
 
 # Stays root (unlike apps/api and apps/dashboard) — Chromium's sandbox needs either root or
