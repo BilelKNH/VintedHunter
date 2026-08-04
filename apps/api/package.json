@@ -21,7 +21,7 @@
     "@vinted-hunter/database": "workspace:*",
     "@vinted-hunter/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
-    "bullmq": "^5.34.0",
+    "bullmq": "^6.0.5",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.0.0",
     "fastify-type-provider-zod": "^4.0.0",
