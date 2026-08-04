@@ -30,10 +30,10 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^22.10.0",
-    "dotenv-cli": "^8.0.0",
-    "typescript": "^5.7.0",
+    "@types/node": "^26.1.2",
+    "dotenv-cli": "^11.0.0",
+    "typescript": "^7.0.2",
     "tsx": "^4.19.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.10"
   }
 }
