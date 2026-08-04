@@ -7,7 +7,11 @@ import { computePriceScore } from './price-score.js';
 import { computeBrandScore } from './brand-score.js';
 import { computeConditionScore } from './condition-score.js';
 import { computeLiquidityScore } from './liquidity-score.js';
-import { computeAuthenticityScore, isSuspiciouslyCheap } from './authenticity-score.js';
+import {
+  computeAuthenticityScore,
+  isCounterfeitFlagged,
+  isSuspiciouslyCheap,
+} from './authenticity-score.js';
 
 // §15.2 weights adapted to the 5 sub-score columns the Analysis model actually has — see the
 // plan's "scoring weights" decision: Demande folded into Liquidity (20+10=30%), Vendeur folded
@@ -27,6 +31,13 @@ const WEIGHTS = {
 // a net swing of just -4 on the 0-100 scale). Hard-cap below GOOD_OPPORTUNITY/STRONG_BUY
 // instead so a suspiciously-cheap listing always lands at WATCH-or-lower for manual review.
 const SUSPICIOUSLY_CHEAP_SCORE_CAP = 65;
+
+// Phase 6 (§14/§62): a logo/brand mismatch or an explicit counterfeit-risk flag from Claude
+// Vision is a stronger fake signal than price alone (same net-swing problem as above —
+// authenticityScore's vision penalty is capped at -30/-20 within only a 10%-weighted
+// sub-score), so it gets a lower, separate cap. Both caps can apply; compute-score takes the
+// minimum.
+const COUNTERFEIT_FLAGGED_SCORE_CAP = 50;
 
 // §16 action bands. Exported (not just used internally) because the Analysis DB model has no
 // `recommendation` column — it's purely derived from `score`, so callers that only have a
@@ -53,14 +64,24 @@ function buildExplanation(
   errorDetection: ErrorDetectionResult,
   roi: number,
   suspiciouslyCheap: boolean,
+  counterfeitFlagged: boolean,
 ): string[] {
   const explanation: string[] = [];
-  const { listing, market } = input;
+  const { listing, market, vision } = input;
 
   if (suspiciouslyCheap) {
     explanation.push(
       "⚠️ Prix anormalement bas par rapport au marché — vérifier l'authenticité avant achat",
     );
+  }
+  if (counterfeitFlagged) {
+    explanation.push('⚠️ Signaux de contrefaçon détectés sur les photos — vérifier avant achat');
+  }
+  if (vision?.defects.length) {
+    explanation.push(`Défauts visibles sur les photos : ${vision.defects.join(', ')}`);
+  }
+  if (vision?.extractedLabelText.length) {
+    explanation.push(`Texte relevé sur les étiquettes : ${vision.extractedLabelText.join(', ')}`);
   }
 
   if (market.estimatedValue > 0) {
@@ -115,6 +136,7 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
     estimatedValue: market.estimatedValue,
     seller: listing.seller,
     descriptionIsLowQuality: descriptionQuality.isLowQuality,
+    vision: input.vision,
   });
 
   const rawScore = Math.round(
@@ -126,7 +148,14 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
   );
 
   const suspiciouslyCheap = isSuspiciouslyCheap(listing.price, market.estimatedValue);
-  const score = suspiciouslyCheap ? Math.min(rawScore, SUSPICIOUSLY_CHEAP_SCORE_CAP) : rawScore;
+  const counterfeitFlagged = isCounterfeitFlagged(input.vision);
+  let score = rawScore;
+  if (suspiciouslyCheap) {
+    score = Math.min(score, SUSPICIOUSLY_CHEAP_SCORE_CAP);
+  }
+  if (counterfeitFlagged) {
+    score = Math.min(score, COUNTERFEIT_FLAGGED_SCORE_CAP);
+  }
 
   const estimatedProfit = market.estimatedValue - listing.price;
   const roi = listing.price > 0 ? (estimatedProfit / listing.price) * 100 : 0;
@@ -150,6 +179,12 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
       errorDetection,
       roi,
       suspiciouslyCheap,
+      counterfeitFlagged,
     ),
+    photoQualityScore: input.vision?.photoQualityScore ?? null,
+    defects: input.vision?.defects ?? [],
+    extractedLabelText: input.vision?.extractedLabelText ?? [],
+    brandLogoConsistent: input.vision?.brandLogoConsistent ?? null,
+    counterfeitRiskFlags: input.vision?.counterfeitRiskFlags ?? [],
   };
 }

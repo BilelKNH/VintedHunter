@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import type { Listing, PrismaClient } from '@vinted-hunter/database';
+import type { VisionAnalysisResult, VisionAnalyzer } from '@vinted-hunter/ai-engine';
 import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
 import { createComparableListingsRepository } from '../repositories/comparable-listings.repository.js';
@@ -35,6 +36,7 @@ async function createListing(
     condition: string | null;
     description: string | null;
     sellerId: string;
+    images: string[];
   }> = {},
 ): Promise<Listing> {
   return prisma.listing.create({
@@ -49,11 +51,29 @@ async function createListing(
       price: overrides.price ?? 20,
       currency: 'EUR',
       url: 'https://vinted.fr/items/1',
-      images: [],
+      images: overrides.images ?? [],
       sellerId: overrides.sellerId,
     },
   });
 }
+
+function fakeVisionAnalyzer(
+  result: VisionAnalysisResult | (() => Promise<VisionAnalysisResult>),
+): VisionAnalyzer {
+  return {
+    analyze: vi.fn().mockImplementation(async () =>
+      typeof result === 'function' ? result() : result,
+    ),
+  };
+}
+
+const neutralVisionResult: VisionAnalysisResult = {
+  photoQualityScore: 80,
+  defects: [],
+  extractedLabelText: [],
+  brandLogoConsistent: true,
+  counterfeitRiskFlags: [],
+};
 
 describe('analyze-listing job processor', () => {
   let notificationQueue: NotificationQueue;
@@ -174,5 +194,91 @@ describe('analyze-listing job processor', () => {
     await processor(fakeJob({ listingId: listing.id }));
 
     expect(notificationQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('does not call the vision analyzer when the listing has no images', async () => {
+    const listing = await createListing({ images: [] });
+    const visionAnalyzer = fakeVisionAnalyzer(neutralVisionResult);
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      visionAnalyzer,
+    });
+
+    await processor(fakeJob({ listingId: listing.id }));
+
+    expect(visionAnalyzer.analyze).not.toHaveBeenCalled();
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.photoQualityScore).toBeNull();
+  });
+
+  it('persists vision fields and applies the counterfeit cap when the analyzer flags a mismatch', async () => {
+    const listing = await createListing({
+      images: ['https://cdn.vinted.fr/a.jpg'],
+    });
+    const visionAnalyzer = fakeVisionAnalyzer({
+      photoQualityScore: 60,
+      defects: ['Légère usure au col'],
+      extractedLabelText: ['REF 1234'],
+      brandLogoConsistent: false,
+      counterfeitRiskFlags: ['Police du logo incorrecte'],
+    });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      visionAnalyzer,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(visionAnalyzer.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({ imageUrls: ['https://cdn.vinted.fr/a.jpg'] }),
+    );
+    expect(result.score).toBeLessThanOrEqual(50);
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.brandLogoConsistent).toBe(false);
+    expect(stored?.defects).toEqual(['Légère usure au col']);
+    expect(stored?.visionAnalyzedAt).not.toBeNull();
+    expect(notificationQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('completes the job and leaves vision fields null when the vision analyzer throws', async () => {
+    const listing = await createListing({ images: ['https://cdn.vinted.fr/a.jpg'] });
+    const visionAnalyzer: VisionAnalyzer = {
+      analyze: vi.fn().mockRejectedValue(new Error('Anthropic API unavailable')),
+    };
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      visionAnalyzer,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(result.analyzed).toBe(true);
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.photoQualityScore).toBeNull();
+    expect(stored?.visionAnalyzedAt).toBeNull();
+  });
+
+  it('does not call the vision analyzer when none is configured', async () => {
+    const listing = await createListing({ images: ['https://cdn.vinted.fr/a.jpg'] });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      visionAnalyzer: null,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(result.analyzed).toBe(true);
   });
 });

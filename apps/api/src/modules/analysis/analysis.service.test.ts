@@ -19,6 +19,12 @@ function fakeAnalysis(overrides: Partial<Analysis> = {}): Analysis {
     roi: 245,
     explanation: ['Prix 71% sous la valeur marché estimée'],
     createdAt: new Date(),
+    photoQualityScore: null,
+    defects: null,
+    extractedLabelText: null,
+    brandLogoConsistent: null,
+    counterfeitRiskFlags: null,
+    visionAnalyzedAt: null,
     ...overrides,
   };
 }

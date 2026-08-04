@@ -1,2 +1,4 @@
-// Phase 6 (AI avancée): vision IA, OCR, embeddings, similarité — see SPECIFICATION.md §56-70
-export {};
+export * from './types.js';
+export * from './response-schema.js';
+export * from './prompt.js';
+export * from './vision-client.js';

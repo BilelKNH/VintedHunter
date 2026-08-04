@@ -11,6 +11,10 @@ export interface AnalysisRepository {
 export function createAnalysisRepository(prisma: PrismaClient): AnalysisRepository {
   return {
     upsertForListing(listingId, result) {
+      // photoQualityScore is only ever null when vision analysis didn't run (compute-score.ts's
+      // default) — ai-engine's schema requires a real 0-100 value whenever it did — so it
+      // doubles as the "was vision analysis run" signal for visionAnalyzedAt.
+      const visionAnalyzedAt = result.photoQualityScore !== null ? new Date() : null;
       const data = {
         score: result.score,
         priceScore: result.priceScore,
@@ -22,6 +26,12 @@ export function createAnalysisRepository(prisma: PrismaClient): AnalysisReposito
         estimatedProfit: result.estimatedProfit,
         roi: result.roi,
         explanation: result.explanation,
+        photoQualityScore: result.photoQualityScore,
+        defects: result.defects,
+        extractedLabelText: result.extractedLabelText,
+        brandLogoConsistent: result.brandLogoConsistent,
+        counterfeitRiskFlags: result.counterfeitRiskFlags,
+        visionAnalyzedAt,
       };
       return prisma.analysis.upsert({
         where: { listingId },

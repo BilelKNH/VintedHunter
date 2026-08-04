@@ -48,6 +48,11 @@ function analysisResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult
     roi: 245,
     recommendation: 'STRONG_BUY',
     explanation: ['Prix 71% sous la valeur marché estimée'],
+    photoQualityScore: null,
+    defects: [],
+    extractedLabelText: [],
+    brandLogoConsistent: null,
+    counterfeitRiskFlags: [],
     ...overrides,
   };
 }
@@ -87,5 +92,36 @@ describe('analysis.repository', () => {
     const found = await repository.findByListingId(listing.id);
 
     expect(found?.score).toBe(95);
+  });
+
+  it('leaves vision fields null and visionAnalyzedAt null when no vision analysis was run', async () => {
+    const listing = await createListing();
+
+    const analysis = await repository.upsertForListing(listing.id, analysisResult());
+
+    expect(analysis.photoQualityScore).toBeNull();
+    expect(analysis.brandLogoConsistent).toBeNull();
+    expect(analysis.visionAnalyzedAt).toBeNull();
+  });
+
+  it('persists vision fields and sets visionAnalyzedAt when vision analysis was run', async () => {
+    const listing = await createListing();
+
+    const analysis = await repository.upsertForListing(
+      listing.id,
+      analysisResult({
+        photoQualityScore: 82,
+        defects: ['Légère usure au col'],
+        extractedLabelText: ['REF 1234'],
+        brandLogoConsistent: true,
+        counterfeitRiskFlags: [],
+      }),
+    );
+
+    expect(analysis.photoQualityScore).toBe(82);
+    expect(analysis.defects).toEqual(['Légère usure au col']);
+    expect(analysis.extractedLabelText).toEqual(['REF 1234']);
+    expect(analysis.brandLogoConsistent).toBe(true);
+    expect(analysis.visionAnalyzedAt).not.toBeNull();
   });
 });

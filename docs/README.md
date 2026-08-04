@@ -57,3 +57,35 @@ Deliberate scope decisions, not gaps to be "fixed" without a schema/design chang
 per-user notification fan-out or `Notification` DB rows yet (there's no Search↔Listing join to
 attribute a listing to the user whose search found it — pushes are a single global
 Discord/Telegram broadcast for now).
+
+## Phase 6 — Vision AI, OCR & Anti-Counterfeiting
+
+Extends `authenticityScore` with real image-derived signals from Claude Vision (SPECIFICATION.md
+§13, §61, §62). Scoped narrowly per an explicit decision: embeddings/vector DB (§59-60), ML/RL
+training, trend/seasonal detection, recommendation engine, and chatbot (§63-70) are all deferred.
+
+- **`packages/ai-engine`** — wraps `@anthropic-ai/sdk`. Sends Vinted's own CDN image URLs
+  directly as `source: {type: "url"}` content blocks (no download/base64/storage step), capped
+  at the first 4 images per listing. Structured output is forced via a single tool
+  (`report_vision_analysis`, `tool_choice: {type: "tool", ...}`) — one call, no agentic loop —
+  and validated with a zod schema before being trusted. Model: `claude-haiku-4-5` by default
+  (`VISION_MODEL`), a deliberate choice over Opus since this runs on every newly-collected
+  listing with photos and cost/volume matters more than peak accuracy here.
+- **`packages/analyzer`** — `computeAuthenticityScore` gained an optional `vision` signal that
+  only ever *penalizes* (brand/logo mismatch, counterfeit-risk flags, very low photo quality) —
+  no bonus for good photos, and the no-vision path is byte-identical to Phase 5. A second, lower
+  hard cap (`COUNTERFEIT_FLAGGED_SCORE_CAP = 50`, vs. Phase 5's suspiciously-cheap cap of 65)
+  keeps a logo-mismatched listing out of the notify path regardless of how good it looks on every
+  other axis; both caps can apply and the minimum wins.
+- **`apps/worker`** — `analyze-listing.job.ts` calls the vision analyzer (if configured and the
+  listing has images) *before* `computeAnalysis`, so the same `Analysis` row Phase 5 already
+  computes picks up the vision signal without a second job re-deriving comparables/market price.
+  Vision failures are caught and logged, never fail the job — same resilience precedent as
+  `send-notification.job.ts` skipping a channel whose env var is missing.
+- **Schema** — `Analysis` gained nullable columns (`photoQualityScore`, `defects`,
+  `extractedLabelText`, `brandLogoConsistent`, `counterfeitRiskFlags`, `visionAnalyzedAt`); all
+  stay `null` when vision wasn't run (no images, no `ANTHROPIC_API_KEY`, or a failed call).
+  `GET /analysis/:id` needed no code change — it already spreads the full Prisma row.
+
+Feature-flagged by `ANTHROPIC_API_KEY`: unset it and vision analysis is skipped entirely,
+identical to how notification channels degrade when their env vars are absent.

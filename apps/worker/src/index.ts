@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { ANALYZE_LISTING_QUEUE_NAME, type AnalyzeListingJobData } from '@vinted-hunter/shared';
 import { createVintedClient, loadCrawlerConfig } from '@vinted-hunter/crawler';
 import { prisma } from '@vinted-hunter/database';
+import { createVisionAnalyzer, type VisionAnalyzer } from '@vinted-hunter/ai-engine';
 import { loadEnv } from './config/env.js';
 import { createRedisConnection } from './queue/connection.js';
 import {
@@ -43,6 +44,10 @@ async function main(): Promise<void> {
   const comparableListingsRepository = createComparableListingsRepository(prisma);
   const analysisRepository = createAnalysisRepository(prisma);
 
+  const visionAnalyzer: VisionAnalyzer | null = env.ANTHROPIC_API_KEY
+    ? createVisionAnalyzer({ apiKey: env.ANTHROPIC_API_KEY, model: env.VISION_MODEL })
+    : null;
+
   const crawlSearchProcessor = createCrawlSearchProcessor({
     prisma,
     vintedClient,
@@ -55,6 +60,7 @@ async function main(): Promise<void> {
     comparableListingsRepository,
     analysisRepository,
     notificationQueue: sendNotificationQueue,
+    visionAnalyzer,
   });
   const sendNotificationProcessor = createSendNotificationProcessor({
     prisma,
@@ -121,7 +127,9 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
   process.on('SIGINT', () => void shutdown());
 
-  console.log(`[worker] crawler+intelligence online — concurrency=${crawlerConfig.maxWorkers}`);
+  console.log(
+    `[worker] crawler+intelligence online — concurrency=${crawlerConfig.maxWorkers}, vision=${visionAnalyzer ? env.VISION_MODEL : 'disabled'}`,
+  );
 }
 
 main().catch((error: unknown) => {

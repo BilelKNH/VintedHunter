@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeAuthenticityScore, isSuspiciouslyCheap } from './authenticity-score.js';
-import type { SellerInfo } from '../types.js';
+import {
+  computeAuthenticityScore,
+  isCounterfeitFlagged,
+  isSuspiciouslyCheap,
+} from './authenticity-score.js';
+import type { SellerInfo, VisionSignals } from '../types.js';
 
 function seller(overrides: Partial<SellerInfo> = {}): SellerInfo {
   return {
@@ -9,6 +13,17 @@ function seller(overrides: Partial<SellerInfo> = {}): SellerInfo {
     accountAge: null,
     totalListings: null,
     riskScore: null,
+    ...overrides,
+  };
+}
+
+function vision(overrides: Partial<VisionSignals> = {}): VisionSignals {
+  return {
+    photoQualityScore: null,
+    defects: [],
+    extractedLabelText: [],
+    brandLogoConsistent: null,
+    counterfeitRiskFlags: [],
     ...overrides,
   };
 }
@@ -82,6 +97,120 @@ describe('computeAuthenticityScore', () => {
       descriptionIsLowQuality: true,
     });
     expect(score).toBe(0);
+  });
+
+  it('is unaffected when no vision signals are provided (regression guard)', () => {
+    const withoutVision = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+    });
+    const withNullVision = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: null,
+    });
+    expect(withoutVision).toBe(50);
+    expect(withNullVision).toBe(50);
+  });
+
+  it('penalizes a brand/logo mismatch detected in photos', () => {
+    const score = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ brandLogoConsistent: false }),
+    });
+    expect(score).toBe(20); // 50 - 30
+  });
+
+  it('penalizes any counterfeit-risk flag from vision', () => {
+    const score = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ counterfeitRiskFlags: ['Police du logo incorrecte'] }),
+    });
+    expect(score).toBe(30); // 50 - 20
+  });
+
+  it('penalizes a low photo quality score', () => {
+    const score = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ photoQualityScore: 10 }),
+    });
+    expect(score).toBe(40); // 50 - 10
+  });
+
+  it('does not penalize a photo quality score at or above the threshold', () => {
+    const score = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ photoQualityScore: 30 }),
+    });
+    expect(score).toBe(50);
+  });
+
+  it('does not penalize when brandLogoConsistent is true or null', () => {
+    const consistentScore = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ brandLogoConsistent: true }),
+    });
+    const unknownScore = computeAuthenticityScore({
+      price: 100,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: false,
+      vision: vision({ brandLogoConsistent: null }),
+    });
+    expect(consistentScore).toBe(50);
+    expect(unknownScore).toBe(50);
+  });
+
+  it('stacks vision penalties with the existing price/description penalties', () => {
+    const score = computeAuthenticityScore({
+      price: 10,
+      estimatedValue: 100,
+      seller: null,
+      descriptionIsLowQuality: true,
+      vision: vision({ brandLogoConsistent: false }),
+    });
+    expect(score).toBe(0); // 50 - 40 (cheap) - 10 (description) - 30 (logo), clamped at 0
+  });
+});
+
+describe('isCounterfeitFlagged', () => {
+  it('returns false when no vision signals are provided', () => {
+    expect(isCounterfeitFlagged(null)).toBe(false);
+    expect(isCounterfeitFlagged(undefined)).toBe(false);
+  });
+
+  it('returns true when the brand/logo is inconsistent', () => {
+    expect(isCounterfeitFlagged(vision({ brandLogoConsistent: false }))).toBe(true);
+  });
+
+  it('returns true when any counterfeit-risk flag is present', () => {
+    expect(isCounterfeitFlagged(vision({ counterfeitRiskFlags: ['Couture suspecte'] }))).toBe(
+      true,
+    );
+  });
+
+  it('returns false when the logo is consistent and no flags are present', () => {
+    expect(isCounterfeitFlagged(vision({ brandLogoConsistent: true }))).toBe(false);
+    expect(isCounterfeitFlagged(vision())).toBe(false);
   });
 });
 

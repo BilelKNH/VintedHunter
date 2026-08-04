@@ -23,9 +23,23 @@ export interface MarketContext {
   comparableCount: number;
 }
 
+// Phase 6: real image-derived signals from packages/ai-engine's Claude Vision analysis.
+// Deliberately decoupled from @vinted-hunter/ai-engine's VisionAnalysisResult type (same
+// shape, no cross-package dependency) — packages/analyzer stays pure/DB-and-API-agnostic.
+export interface VisionSignals {
+  photoQualityScore: number | null;
+  defects: string[];
+  extractedLabelText: string[];
+  brandLogoConsistent: boolean | null;
+  counterfeitRiskFlags: string[];
+}
+
 export interface AnalysisInput {
   listing: ListingForAnalysis;
   market: MarketContext;
+  // Absent/null when vision analysis wasn't run (no images, no API key, or it failed) —
+  // computeAnalysis behaves identically to before Phase 6 in that case.
+  vision?: VisionSignals | null;
 }
 
 export type Recommendation = 'IGNORE' | 'WATCH' | 'GOOD_OPPORTUNITY' | 'STRONG_BUY';
@@ -45,4 +59,11 @@ export interface AnalysisResult {
   roi: number; // percentage, e.g. 150 means +150% — matches §47's "ROI > 100%" literally
   recommendation: Recommendation;
   explanation: string[];
+  // Phase 6: vision fields, defaulted to null/[] when vision analysis wasn't run — mirrors the
+  // new nullable columns on the Analysis model.
+  photoQualityScore: number | null;
+  defects: string[];
+  extractedLabelText: string[];
+  brandLogoConsistent: boolean | null;
+  counterfeitRiskFlags: string[];
 }

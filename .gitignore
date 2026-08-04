@@ -1,12 +1,40 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output
 dist/
+build/
 .next/
+out/
 .turbo/
+
+# Env — never commit real secrets, .env.example stays tracked
 .env
+.env.local
+.env.*.local
+
+# Logs
 *.log
+npm-debug.log*
+pnpm-debug.log*
+
+# TypeScript
 *.tsbuildinfo
+
+# Tests / E2E
 coverage/
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tgz
+.vercel

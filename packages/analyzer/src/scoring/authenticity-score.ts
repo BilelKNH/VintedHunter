@@ -1,4 +1,4 @@
-import type { SellerInfo } from '../types.js';
+import type { SellerInfo, VisionSignals } from '../types.js';
 
 // Weight: 10% of the overall score — §14.2's authenticity criteria minus "Photos" (needs
 // vision/Phase 6): price anomaly, description genericness, and seller trust (§14.2 already
@@ -22,11 +22,47 @@ const REVIEWS_DIVISOR = 10;
 const MAX_REVIEWS_BONUS = 20;
 const RISK_SCORE_WEIGHT = 0.3;
 
+// Phase 6 (§14/§62): image-derived risk penalties. These only ever subtract — good photos earn
+// no bonus — so a listing with no vision signals available scores identically to before Phase 6
+// (see compute-score.ts's isCounterfeitFlagged for the accompanying hard cap).
+const BRAND_LOGO_MISMATCH_PENALTY = 30;
+const COUNTERFEIT_RISK_PENALTY = 20;
+const LOW_PHOTO_QUALITY_THRESHOLD = 30;
+const LOW_PHOTO_QUALITY_PENALTY = 10;
+
 export function isSuspiciouslyCheap(price: number, estimatedValue: number): boolean {
   if (estimatedValue <= 0) {
     return false;
   }
   return price / estimatedValue < SUSPICIOUSLY_CHEAP_RATIO;
+}
+
+// Exported: compute-score.ts uses this to hard-cap the overall score, same reasoning as
+// isSuspiciouslyCheap — a logo/brand mismatch is a stronger fake signal than the (only -20 net
+// swing on a 10%-weighted sub-score) authenticityScore penalty alone would keep out of the
+// notify path.
+export function isCounterfeitFlagged(vision: VisionSignals | null | undefined): boolean {
+  if (!vision) {
+    return false;
+  }
+  return vision.brandLogoConsistent === false || vision.counterfeitRiskFlags.length > 0;
+}
+
+function visionPenalty(vision: VisionSignals | null | undefined): number {
+  if (!vision) {
+    return 0;
+  }
+  let penalty = 0;
+  if (vision.brandLogoConsistent === false) {
+    penalty += BRAND_LOGO_MISMATCH_PENALTY;
+  }
+  if (vision.counterfeitRiskFlags.length > 0) {
+    penalty += COUNTERFEIT_RISK_PENALTY;
+  }
+  if (vision.photoQualityScore != null && vision.photoQualityScore < LOW_PHOTO_QUALITY_THRESHOLD) {
+    penalty += LOW_PHOTO_QUALITY_PENALTY;
+  }
+  return penalty;
 }
 
 function priceAnomalyPenalty(price: number, estimatedValue: number): number {
@@ -65,10 +101,12 @@ export function computeAuthenticityScore(params: {
   estimatedValue: number;
   seller: SellerInfo | null;
   descriptionIsLowQuality: boolean;
+  vision?: VisionSignals | null;
 }): number {
   const trust = sellerTrustScore(params.seller);
   const penalty =
     priceAnomalyPenalty(params.price, params.estimatedValue) +
-    (params.descriptionIsLowQuality ? LOW_QUALITY_DESCRIPTION_PENALTY : 0);
+    (params.descriptionIsLowQuality ? LOW_QUALITY_DESCRIPTION_PENALTY : 0) +
+    visionPenalty(params.vision);
   return Math.max(0, Math.min(100, Math.round(trust - penalty)));
 }

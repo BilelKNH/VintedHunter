@@ -3,6 +3,7 @@ import type { PrismaClient } from '@vinted-hunter/database';
 import { computeAnalysis, type ListingForAnalysis } from '@vinted-hunter/analyzer';
 import { estimateMarketPrice } from '@vinted-hunter/pricing-engine';
 import { shouldNotify } from '@vinted-hunter/notifications';
+import type { VisionAnalysisResult, VisionAnalyzer } from '@vinted-hunter/ai-engine';
 import type { AnalyzeListingJobData } from '@vinted-hunter/shared';
 import type { ComparableListingsRepository } from '../repositories/comparable-listings.repository.js';
 import type { AnalysisRepository } from '../repositories/analysis.repository.js';
@@ -22,6 +23,9 @@ export interface AnalyzeListingJobDeps {
   comparableListingsRepository: ComparableListingsRepository;
   analysisRepository: AnalysisRepository;
   notificationQueue: NotificationQueue;
+  // Phase 6: optional — null/absent when ANTHROPIC_API_KEY isn't configured. computeAnalysis
+  // falls back to its pre-Phase-6 behavior when no vision result is available.
+  visionAnalyzer?: VisionAnalyzer | null;
 }
 
 export interface AnalyzeListingJobResult {
@@ -57,6 +61,22 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       fallbackPrice: listing.price,
     });
 
+    let vision: VisionAnalysisResult | undefined;
+    if (deps.visionAnalyzer && listing.images.length > 0) {
+      try {
+        vision = await deps.visionAnalyzer.analyze({
+          imageUrls: listing.images,
+          brand: listing.brand,
+          category: listing.category,
+          condition: listing.condition,
+        });
+      } catch (error) {
+        // Vision is best-effort: a flaky Anthropic call must never block the crawl->analyze
+        // pipeline. computeAnalysis below runs identically to pre-Phase-6 without it.
+        console.error(`[analyze-listing] vision analysis failed for listing ${listing.id}`, error);
+      }
+    }
+
     const listingForAnalysis: ListingForAnalysis = {
       title: listing.title,
       description: listing.description,
@@ -83,6 +103,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
         estimatedValue: priceEstimate.estimatedValue,
         comparableCount: priceEstimate.comparableCount,
       },
+      vision,
     });
 
     const analysis = await deps.analysisRepository.upsertForListing(listing.id, analysisResult);

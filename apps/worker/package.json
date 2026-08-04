@@ -12,6 +12,7 @@
     "test": "dotenv -e ../../.env -- vitest run"
   },
   "dependencies": {
+    "@vinted-hunter/ai-engine": "workspace:*",
     "@vinted-hunter/analyzer": "workspace:*",
     "@vinted-hunter/crawler": "workspace:*",
     "@vinted-hunter/database": "workspace:*",

@@ -12,6 +12,10 @@ const envSchema = z.object({
   DISCORD_WEBHOOK: z.string().optional(),
   TELEGRAM_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),
+  // Vision AI (§13/§61/§62) — optional: analyze-listing.job.ts skips vision analysis entirely
+  // when unset (same "feature degrades gracefully" pattern as the notification channels above).
+  ANTHROPIC_API_KEY: z.string().optional(),
+  VISION_MODEL: z.string().default('claude-haiku-4-5'),
 });
 
 export type Env = z.infer<typeof envSchema>;

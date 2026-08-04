@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { computeAnalysis } from './compute-score.js';
-import type { AnalysisInput } from '../types.js';
+import type { AnalysisInput, VisionSignals } from '../types.js';
 
 function baseInput(
   overrides: Partial<AnalysisInput['listing']> = {},
   market: Partial<AnalysisInput['market']> = {},
+  vision: AnalysisInput['vision'] = undefined,
 ): AnalysisInput {
   return {
     listing: {
@@ -21,6 +22,18 @@ function baseInput(
       ...overrides,
     },
     market: { estimatedValue: 100, comparableCount: 5, ...market },
+    vision,
+  };
+}
+
+function visionSignals(overrides: Partial<VisionSignals> = {}): VisionSignals {
+  return {
+    photoQualityScore: null,
+    defects: [],
+    extractedLabelText: [],
+    brandLogoConsistent: null,
+    counterfeitRiskFlags: [],
+    ...overrides,
   };
 }
 
@@ -123,5 +136,67 @@ describe('computeAnalysis', () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(100);
     }
+  });
+
+  it('defaults vision fields to null/[] when no vision analysis was run (regression guard)', () => {
+    const result = computeAnalysis(baseInput());
+
+    expect(result.photoQualityScore).toBeNull();
+    expect(result.defects).toEqual([]);
+    expect(result.extractedLabelText).toEqual([]);
+    expect(result.brandLogoConsistent).toBeNull();
+    expect(result.counterfeitRiskFlags).toEqual([]);
+  });
+
+  it('caps the score below GOOD_OPPORTUNITY/STRONG_BUY when vision flags a brand/logo mismatch, even on an otherwise-perfect listing', () => {
+    const result = computeAnalysis(
+      baseInput({}, {}, visionSignals({ brandLogoConsistent: false })),
+    );
+
+    expect(result.score).toBeLessThanOrEqual(50);
+    expect(result.recommendation).not.toBe('STRONG_BUY');
+    expect(result.recommendation).not.toBe('GOOD_OPPORTUNITY');
+    expect(result.explanation.some((line) => line.includes('contrefaçon'))).toBe(true);
+  });
+
+  it('caps the score when vision reports a counterfeit-risk flag', () => {
+    const result = computeAnalysis(
+      baseInput({}, {}, visionSignals({ counterfeitRiskFlags: ['Police du logo incorrecte'] })),
+    );
+
+    expect(result.score).toBeLessThanOrEqual(50);
+  });
+
+  it('applies the lower counterfeit cap (not just the suspiciously-cheap cap) when both signals fire', () => {
+    const result = computeAnalysis(
+      baseInput({ price: 10 }, { estimatedValue: 100 }, visionSignals({ brandLogoConsistent: false })),
+    );
+
+    expect(result.score).toBeLessThanOrEqual(50);
+  });
+
+  it('persists defects and extracted label text into the analysis result and explanation', () => {
+    const result = computeAnalysis(
+      baseInput(
+        {},
+        {},
+        visionSignals({ defects: ['Légère usure au col'], extractedLabelText: ['REF 1234'] }),
+      ),
+    );
+
+    expect(result.defects).toEqual(['Légère usure au col']);
+    expect(result.extractedLabelText).toEqual(['REF 1234']);
+    expect(result.explanation.some((line) => line.includes('Légère usure au col'))).toBe(true);
+    expect(result.explanation.some((line) => line.includes('REF 1234'))).toBe(true);
+  });
+
+  it('does not cap or penalize when vision signals are all neutral (photos present but nothing flagged)', () => {
+    const withVision = computeAnalysis(
+      baseInput({}, {}, visionSignals({ photoQualityScore: 90, brandLogoConsistent: true })),
+    );
+    const withoutVision = computeAnalysis(baseInput());
+
+    expect(withVision.recommendation).toBe('STRONG_BUY');
+    expect(withVision.score).toBe(withoutVision.score);
   });
 });
