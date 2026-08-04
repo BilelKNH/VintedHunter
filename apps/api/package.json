@@ -15,25 +15,25 @@
     "@fastify/cookie": "^11.0.0",
     "@fastify/cors": "^10.0.0",
     "@fastify/helmet": "^13.0.0",
-    "@fastify/jwt": "^9.0.0",
-    "@fastify/rate-limit": "^10.1.0",
+    "@fastify/jwt": "^10.2.1",
+    "@fastify/rate-limit": "^11.2.0",
     "@vinted-hunter/analyzer": "workspace:*",
     "@vinted-hunter/database": "workspace:*",
     "@vinted-hunter/shared": "workspace:*",
-    "bcryptjs": "^2.4.3",
-    "bullmq": "^5.34.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^6.0.5",
     "fastify": "^5.2.0",
-    "fastify-plugin": "^5.0.0",
+    "fastify-plugin": "^6.0.0",
     "fastify-type-provider-zod": "^4.0.0",
     "ioredis": "^5.4.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^22.10.0",
-    "dotenv-cli": "^8.0.0",
-    "typescript": "^5.7.0",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^26.1.2",
+    "dotenv-cli": "^11.0.0",
+    "typescript": "^7.0.2",
     "tsx": "^4.19.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.10"
   }
 }
