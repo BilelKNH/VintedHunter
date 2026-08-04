@@ -1,2 +1,10 @@
-// Phase 4 (Crawler): scheduler, workers, listing extraction — see SPECIFICATION.md §11
-export {};
+export * from './types.js';
+export * from './config.js';
+export * from './rate-limiter.js';
+export * from './scheduler/priority.js';
+export * from './vinted/build-query.js';
+export * from './vinted/vinted-client.js';
+export * from './parser/listing-parser.js';
+export * from './normalizer/normalize-listing.js';
+export * from './matching/matches-search.js';
+export * from './dedupe/duplicate-detector.js';
