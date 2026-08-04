@@ -1,5 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  // Default (10) is below the workspace's package count once every package's "dev" task
+  // (persistent, even the "echo skip" no-op ones) is counted — bump comfortably above the
+  // current 11 so adding another package doesn't retrigger this.
+  "concurrency": "20",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
