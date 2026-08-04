@@ -12,8 +12,10 @@ RUN pnpm --filter @vinted-hunter/database exec prisma generate
 RUN pnpm exec turbo run build --filter=api
 
 # Run as the non-root `node` user node:22-alpine already ships (uid 1000) — the built process
-# only ever needs read access to what's already on disk, no runtime writes to /repo.
-RUN chown -R node:node /repo
+# only ever needs read access to what's already on disk, no runtime writes to /repo. No chown
+# needed: files copied/built as root keep the default umask (world-readable/executable), which
+# is all a non-owning user needs to read and run them. (`chown -R` over the full node_modules
+# tree was also just slow — 3+ minutes — and unreliable on this host's Docker Desktop.)
 USER node
 
 EXPOSE 3001
