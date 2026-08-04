@@ -16,7 +16,7 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/helmet": "^13.0.0",
     "@fastify/jwt": "^9.0.0",
-    "@fastify/rate-limit": "^10.1.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@vinted-hunter/analyzer": "workspace:*",
     "@vinted-hunter/database": "workspace:*",
     "@vinted-hunter/shared": "workspace:*",
