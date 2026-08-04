@@ -1,5 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Pinned explicitly (not just "native") — apps/worker runs on Debian slim (openssl 3.0.x) and
+  // apps/api/dashboard run on Alpine (musl); relying on build-time "native" detection alone has
+  // produced a mismatched engine before when Docker layer caching reused a generate step from a
+  // differently-based image.
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
