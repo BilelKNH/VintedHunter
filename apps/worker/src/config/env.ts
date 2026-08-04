@@ -7,6 +7,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
+  // Notification channels (§46-49) — optional: send-notification.job.ts skips any channel
+  // whose config is empty rather than failing the job.
+  DISCORD_WEBHOOK: z.string().optional(),
+  TELEGRAM_TOKEN: z.string().optional(),
+  TELEGRAM_CHAT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

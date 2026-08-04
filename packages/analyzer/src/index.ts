@@ -1,2 +1,11 @@
-// Phase 5 (Intelligence): text/keyword analysis, scoring engine — see SPECIFICATION.md §12, §15
-export {};
+export * from './types.js';
+export * from './title-analysis.js';
+export * from './description-quality.js';
+export * from './seller-keywords.js';
+export * from './error-detection.js';
+export * from './scoring/price-score.js';
+export * from './scoring/brand-score.js';
+export * from './scoring/condition-score.js';
+export * from './scoring/liquidity-score.js';
+export * from './scoring/authenticity-score.js';
+export * from './scoring/compute-score.js';

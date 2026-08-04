@@ -20,4 +20,25 @@ describe('loadEnv', () => {
 
     expect(() => loadEnv(rest)).toThrow(/REDIS_URL/);
   });
+
+  it('leaves notification channel vars undefined when not set', () => {
+    const env = loadEnv(validSource);
+
+    expect(env.DISCORD_WEBHOOK).toBeUndefined();
+    expect(env.TELEGRAM_TOKEN).toBeUndefined();
+    expect(env.TELEGRAM_CHAT_ID).toBeUndefined();
+  });
+
+  it('parses notification channel vars when set', () => {
+    const env = loadEnv({
+      ...validSource,
+      DISCORD_WEBHOOK: 'https://discord.example/webhook',
+      TELEGRAM_TOKEN: 'bot-token',
+      TELEGRAM_CHAT_ID: '12345',
+    });
+
+    expect(env.DISCORD_WEBHOOK).toBe('https://discord.example/webhook');
+    expect(env.TELEGRAM_TOKEN).toBe('bot-token');
+    expect(env.TELEGRAM_CHAT_ID).toBe('12345');
+  });
 });

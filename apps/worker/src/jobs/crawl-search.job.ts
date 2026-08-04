@@ -7,6 +7,7 @@ import {
   type ParsedListing,
   type SearchConfiguration,
 } from '@vinted-hunter/crawler';
+import type { AnalyzeListingJobData } from '@vinted-hunter/shared';
 import type { CrawlSearchJobData } from '../queue/queues.js';
 import type { CrawlCache } from '../cache/crawl-cache.js';
 import type { CrawlListingsRepository } from '../repositories/crawl-listings.repository.js';
@@ -21,11 +22,20 @@ export interface VintedSearchClient {
   ): AsyncGenerator<unknown[]>;
 }
 
+// Narrow slice of BullMQ's Queue API, same pattern as analyze-listing.job.ts's
+// NotificationQueue — lets tests inject a fake without spinning up Redis.
+export interface AnalyzeListingQueue {
+  add(name: string, data: AnalyzeListingJobData): Promise<unknown>;
+}
+
+const ANALYZE_LISTING_JOB_NAME = 'analyze-listing';
+
 export interface CrawlSearchJobDeps {
   prisma: PrismaClient;
   vintedClient: VintedSearchClient;
   listingsRepository: CrawlListingsRepository;
   cache: CrawlCache;
+  analyzeListingQueue: AnalyzeListingQueue;
 }
 
 export interface CrawlSearchJobResult {
@@ -95,6 +105,11 @@ export function createCrawlSearchProcessor(deps: CrawlSearchJobDeps) {
         collected += 1;
         if (result.isNew) {
           newCount += 1;
+          // Completes §11.4's crawl -> analyse -> notify pipeline: only newly-collected
+          // listings need scoring, re-crawled/already-known ones already have an Analysis.
+          await deps.analyzeListingQueue.add(ANALYZE_LISTING_JOB_NAME, {
+            listingId: result.listing.id,
+          });
         }
       }
 

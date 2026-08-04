@@ -5,7 +5,11 @@ import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
 import { createCrawlListingsRepository } from '../repositories/crawl-listings.repository.js';
 import type { CrawlCache } from '../cache/crawl-cache.js';
-import { createCrawlSearchProcessor, type VintedSearchClient } from './crawl-search.job.js';
+import {
+  createCrawlSearchProcessor,
+  type AnalyzeListingQueue,
+  type VintedSearchClient,
+} from './crawl-search.job.js';
 import type { CrawlSearchJobData } from '../queue/queues.js';
 
 let prisma: PrismaClient;
@@ -87,15 +91,17 @@ async function createSearch(
 
 describe('crawl-search job processor', () => {
   let cache: CrawlCache;
+  let analyzeListingQueue: AnalyzeListingQueue;
 
   beforeEach(() => {
     cache = {
       shouldSkip: vi.fn().mockResolvedValue(false),
       markCrawled: vi.fn().mockResolvedValue(undefined),
     };
+    analyzeListingQueue = { add: vi.fn().mockResolvedValue(undefined) };
   });
 
-  it('persists matching listings and marks the search as crawled', async () => {
+  it('persists matching listings, marks the search as crawled, and enqueues analysis for the new listing', async () => {
     const search = await createSearch();
     const { client } = fakeVintedClient([[rawItem()]]);
     const listingsRepository = createCrawlListingsRepository(prisma);
@@ -104,6 +110,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: search.id }));
@@ -112,6 +119,45 @@ describe('crawl-search job processor', () => {
     const listing = await prisma.listing.findUnique({ where: { externalId: '111' } });
     expect(listing?.title).toBe('Nike Tech Fleece Hoodie');
     expect(cache.markCrawled).toHaveBeenCalledWith(search.id);
+    expect(analyzeListingQueue.add).toHaveBeenCalledWith(
+      'analyze-listing',
+      expect.objectContaining({ listingId: listing?.id }),
+    );
+  });
+
+  it('does not enqueue analysis for a listing that already existed', async () => {
+    const search = await createSearch();
+    const listingsRepository = createCrawlListingsRepository(prisma);
+    await listingsRepository.upsertListing({
+      externalId: '111',
+      source: 'VINTED',
+      title: 'Nike Tech Fleece Hoodie',
+      description: null,
+      brand: 'Nike',
+      category: null,
+      size: 'L',
+      condition: null,
+      price: 35,
+      currency: 'EUR',
+      url: 'https://www.vinted.fr/items/111',
+      images: [],
+      seller: null,
+      publishedAt: null,
+      contentHash: 'hash',
+    });
+
+    const { client } = fakeVintedClient([[rawItem()]]);
+    const processor = createCrawlSearchProcessor({
+      prisma,
+      vintedClient: client,
+      listingsRepository,
+      cache,
+      analyzeListingQueue,
+    });
+
+    await processor(fakeJob({ searchId: search.id }));
+
+    expect(analyzeListingQueue.add).not.toHaveBeenCalled();
   });
 
   it("filters out listings that don't match the search criteria", async () => {
@@ -123,6 +169,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: search.id }));
@@ -159,6 +206,7 @@ describe('crawl-search job processor', () => {
       vintedClient: tracked.client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     await processor(fakeJob({ searchId: search.id }));
@@ -176,6 +224,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: search.id }));
@@ -194,6 +243,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: search.id, manual: true }));
@@ -210,6 +260,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: search.id }));
@@ -227,6 +278,7 @@ describe('crawl-search job processor', () => {
       vintedClient: client,
       listingsRepository,
       cache,
+      analyzeListingQueue,
     });
 
     const result = await processor(fakeJob({ searchId: 'missing-search' }));

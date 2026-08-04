@@ -59,6 +59,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^10.1.0
         version: 10.3.0
+      '@vinted-hunter/analyzer':
+        specifier: workspace:*
+        version: link:../../packages/analyzer
       '@vinted-hunter/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -68,6 +71,9 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      bullmq:
+        specifier: ^5.34.0
+        version: 5.81.3
       fastify:
         specifier: ^5.2.0
         version: 5.11.0
@@ -77,6 +83,9 @@ importers:
       fastify-type-provider-zod:
         specifier: ^4.0.0
         version: 4.0.2(fastify@5.11.0)(zod@3.25.76)
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -214,12 +223,24 @@ importers:
 
   apps/worker:
     dependencies:
+      '@vinted-hunter/analyzer':
+        specifier: workspace:*
+        version: link:../../packages/analyzer
       '@vinted-hunter/crawler':
         specifier: workspace:*
         version: link:../../packages/crawler
       '@vinted-hunter/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@vinted-hunter/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@vinted-hunter/pricing-engine':
+        specifier: workspace:*
+        version: link:../../packages/pricing-engine
+      '@vinted-hunter/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       bullmq:
         specifier: ^5.34.0
         version: 5.81.3
@@ -260,6 +281,9 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/crawler:
     dependencies:
@@ -301,12 +325,18 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/pricing-engine:
     devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/shared:
     dependencies:

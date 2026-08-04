@@ -4,9 +4,11 @@ AI-powered resale opportunity detection platform. Full product spec: [SPECIFICAT
 
 ## Status
 
-Phase 4 (Crawler) — automatic Vinted listing collection: BullMQ scheduler + workers
-(`apps/worker`), collection/parsing/matching logic (`packages/crawler`). Phases 1–3
-(monorepo foundation, backend core API, dashboard) are done.
+Phase 5 (Intelligence) — every newly-collected listing is automatically scored: text analysis +
+scoring engine (`packages/analyzer`), market price estimation (`packages/pricing-engine`),
+Discord/Telegram push alerts (`packages/notifications`), wired together by two new
+`apps/worker` jobs (`analyze-listing`, `send-notification`) and a new `POST/GET /analysis/:id`
+API. Phases 1–4 (monorepo foundation, backend core API, dashboard, crawler) are done.
 See `SPECIFICATION.md` §105 for the full phase roadmap.
 
 ## Getting started
