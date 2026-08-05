@@ -9,6 +9,7 @@ import { ListingGallery } from "@/components/listings/ListingGallery";
 import { FavoriteButton } from "@/components/listings/FavoriteButton";
 import { AnalysisPendingBadge } from "@/components/listings/AnalysisPendingBadge";
 import { AnalysisScoreBadge } from "@/components/listings/AnalysisScoreBadge";
+import { PurchaseAction } from "@/components/purchases/PurchaseAction";
 import { useListing } from "@/hooks/useListings";
 import { formatPrice, formatRelativeDate } from "@/utils/format";
 
@@ -71,6 +72,8 @@ export default function ListingDetailPage() {
         ) : (
           <AnalysisPendingBadge />
         )}
+
+        <PurchaseAction listingId={listing.id} price={listing.price} currency={listing.currency} />
 
         {listing.description ? (
           <p className="whitespace-pre-line text-sm text-text-secondary">

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Heart, ShoppingBag, Target } from "lucide-react";
+import { CalendarClock, Heart, PiggyBank, ShoppingBag, Target, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { SearchActivityChart } from "@/components/dashboard/SearchActivityChart";
@@ -9,7 +9,8 @@ import { IntelligencePreviewCard } from "@/components/dashboard/IntelligencePrev
 import { useSearches } from "@/hooks/useSearches";
 import { useListings } from "@/hooks/useListings";
 import { useFavoriteListings } from "@/hooks/useFavorites";
-import { formatRelativeDate } from "@/utils/format";
+import { usePurchaseStats } from "@/hooks/usePurchases";
+import { formatPrice, formatRelativeDate } from "@/utils/format";
 
 export default function DashboardPage() {
   const { data: searches, isLoading: searchesLoading } = useSearches();
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   // Same (page, limit) as the hydration call in (app)/layout.tsx — react-query dedupes this
   // into a single shared query rather than firing a second request.
   const { data: favoritesPage } = useFavoriteListings(1, 100);
+  const { data: purchaseStats, isLoading: purchaseStatsLoading } = usePurchaseStats();
 
   const isLoading = searchesLoading || listingsLoading;
   const enabledCount = searches?.filter((search) => search.enabled).length ?? 0;
@@ -54,6 +56,37 @@ export default function DashboardPage() {
           <KpiCard label="Favorited" value={String(favoritedCount)} icon={Heart} />
         </div>
       )}
+
+      {purchaseStatsLoading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : purchaseStats ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <KpiCard
+            label="Realized profit"
+            value={formatPrice(purchaseStats.totalRealizedProfit, "EUR")}
+            icon={PiggyBank}
+          />
+          <KpiCard
+            label="Avg realized ROI"
+            value={
+              purchaseStats.averageRealizedRoi != null
+                ? `${purchaseStats.averageRealizedRoi >= 0 ? "+" : ""}${Math.round(purchaseStats.averageRealizedRoi)}%`
+                : "—"
+            }
+            icon={TrendingUp}
+          />
+          <KpiCard label="Items flipped" value={String(purchaseStats.totalSold)} icon={ShoppingBag} />
+          <KpiCard
+            label="Capital deployed"
+            value={formatPrice(purchaseStats.totalInvested, "EUR")}
+            icon={Target}
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SearchActivityChart searches={searches ?? []} />
