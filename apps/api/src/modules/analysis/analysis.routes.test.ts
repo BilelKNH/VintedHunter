@@ -90,6 +90,7 @@ describe('/analysis', () => {
           estimatedValue: 100,
           estimatedProfit: 71,
           roi: 245,
+          maxBuyPrice: 76.92,
           explanation: ['Prix 71% sous la valeur marché estimée'],
         },
       });
@@ -117,6 +118,7 @@ describe('/analysis', () => {
           estimatedValue: 50,
           estimatedProfit: 0,
           roi: 0,
+          maxBuyPrice: 38.46,
           explanation: [],
         },
       });

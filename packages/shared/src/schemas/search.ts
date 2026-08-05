@@ -10,6 +10,7 @@ export const createSearchSchema = z.object({
   minPrice: z.number().nonnegative().optional(),
   maxPrice: z.number().nonnegative().optional(),
   minimumScore: z.number().int().min(0).max(100).optional(),
+  targetRoi: z.number().int().min(0).optional(),
   frequency: z.number().int().positive(),
   enabled: z.boolean().optional(),
 });

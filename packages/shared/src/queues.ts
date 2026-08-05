@@ -7,4 +7,8 @@ export const ANALYZE_LISTING_QUEUE_NAME = 'analyze-listing';
 export interface AnalyzeListingJobData {
   listingId: string;
   manual?: boolean;
+  // The triggering search's target ROI (Search.targetRoi), used to compute maxBuyPrice.
+  // Absent for on-demand re-analysis not tied to a search (apps/api's POST /analysis/:id) —
+  // apps/worker's analyze-listing.job.ts falls back to the same default as Search.targetRoi.
+  targetRoi?: number;
 }

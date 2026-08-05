@@ -8,6 +8,9 @@ export type ListingRecommendation = "IGNORE" | "WATCH" | "GOOD_OPPORTUNITY" | "S
 export interface ListingAnalysisSummary {
   score: number;
   recommendation: ListingRecommendation;
+  // Highest price to pay for a resale at estimatedValue to still clear the triggering search's
+  // target ROI (see packages/analyzer's compute-score.ts).
+  maxBuyPrice: number;
 }
 
 // Mirrors the Prisma Listing model as it's actually shaped over the wire — date fields are

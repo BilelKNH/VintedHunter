@@ -17,6 +17,7 @@ function fakeAnalysis(overrides: Partial<Analysis> = {}): Analysis {
     estimatedValue: 100,
     estimatedProfit: 71,
     roi: 245,
+    maxBuyPrice: 76.92,
     explanation: ['Prix 71% sous la valeur marché estimée'],
     createdAt: new Date(),
     photoQualityScore: null,

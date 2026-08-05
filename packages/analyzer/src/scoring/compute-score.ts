@@ -63,6 +63,8 @@ function buildExplanation(
   sellerKeywords: SellerKeywordSignal,
   errorDetection: ErrorDetectionResult,
   roi: number,
+  maxBuyPrice: number,
+  targetRoi: number,
   suspiciouslyCheap: boolean,
   counterfeitFlagged: boolean,
 ): string[] {
@@ -115,12 +117,22 @@ function buildExplanation(
     );
   }
   explanation.push(`ROI estimé : ${Math.round(roi)}%`);
+  explanation.push(
+    `Prix d'achat max recommandé (marge ${targetRoi}%) : ${maxBuyPrice.toFixed(2)}€`,
+  );
 
   return explanation;
 }
 
+// maxBuyPrice solves for the price P where (estimatedValue - P) / P = targetRoi/100 — i.e. the
+// highest price that still clears the target margin on a resale at estimatedValue. Clamped to 0
+// since a targetRoi <= -100 would otherwise divide by <= 0 or go negative.
+function computeMaxBuyPrice(estimatedValue: number, targetRoi: number): number {
+  return Math.max(0, estimatedValue / (1 + targetRoi / 100));
+}
+
 export function computeAnalysis(input: AnalysisInput): AnalysisResult {
-  const { listing, market } = input;
+  const { listing, market, targetRoi } = input;
 
   const titleAnalysis = analyzeTitle(listing.title, listing.brand);
   const descriptionQuality = analyzeDescriptionQuality(listing.description);
@@ -159,6 +171,7 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
 
   const estimatedProfit = market.estimatedValue - listing.price;
   const roi = listing.price > 0 ? (estimatedProfit / listing.price) * 100 : 0;
+  const maxBuyPrice = computeMaxBuyPrice(market.estimatedValue, targetRoi);
 
   return {
     score,
@@ -170,6 +183,7 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
     estimatedValue: market.estimatedValue,
     estimatedProfit,
     roi,
+    maxBuyPrice,
     recommendation: recommendationForScore(score),
     explanation: buildExplanation(
       input,
@@ -178,6 +192,8 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
       sellerKeywords,
       errorDetection,
       roi,
+      maxBuyPrice,
+      targetRoi,
       suspiciouslyCheap,
       counterfeitFlagged,
     ),

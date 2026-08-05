@@ -36,13 +36,13 @@ enum NotificationChannel {
 }
 
 model User {
-  id            String          @id @default(uuid())
-  email         String          @unique
+  id            String         @id @default(uuid())
+  email         String         @unique
   password      String
   firstname     String?
-  role          UserRole        @default(USER)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  role          UserRole       @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   searches      Search[]
   notifications Notification[]
   purchases     Purchase[]
@@ -64,6 +64,10 @@ model Search {
   minPrice         Float?
   maxPrice         Float?
   minimumScore     Int      @default(70)
+  // Target resale margin used to derive Analysis.maxBuyPrice (§ "best buy price"): the highest
+  // price to pay for a match under this search so a resale at the estimated market value still
+  // clears this ROI. Percentage, e.g. 30 means +30%.
+  targetRoi        Int      @default(30)
   frequency        Int
   enabled          Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -117,8 +121,8 @@ model Seller {
 }
 
 model Analysis {
-  id                String    @id @default(uuid())
-  listingId         String    @unique
+  id                String   @id @default(uuid())
+  listingId         String   @unique
   score             Int
   priceScore        Int
   brandScore        Int
@@ -128,9 +132,14 @@ model Analysis {
   estimatedValue    Float
   estimatedProfit   Float
   roi               Float
+  // Highest price to pay so a resale at estimatedValue still clears the triggering search's
+  // targetRoi — derived once at analysis time from whichever search first discovered this
+  // listing (Analysis is 1:1 with Listing, computed only once on discovery; see
+  // apps/worker/src/jobs/crawl-search.job.ts).
+  maxBuyPrice       Float
   explanation       Json
-  createdAt         DateTime  @default(now())
-  listing           Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   // Phase 6 (§13/§61/§62): Claude Vision output — nullable/best-effort, absent when the
   // listing had no images, ANTHROPIC_API_KEY was unset, or the vision call failed.

@@ -52,6 +52,7 @@ async function createAnalysis(listingId: string): Promise<Analysis> {
       estimatedValue: 140,
       estimatedProfit: 90,
       roi: 180,
+      maxBuyPrice: 107.69,
       explanation: ['Prix 64% sous la valeur marché estimée'],
     },
   });

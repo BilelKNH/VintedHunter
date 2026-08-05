@@ -17,6 +17,7 @@ function fakeSearch(overrides: Partial<Search> = {}): Search {
     minPrice: null,
     maxPrice: 50,
     minimumScore: 70,
+    targetRoi: 30,
     frequency: 15,
     enabled: true,
     createdAt: new Date(),
