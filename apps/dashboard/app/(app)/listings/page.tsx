@@ -63,7 +63,7 @@ export default function ListingsPage() {
       ) : (
         <EmptyState
           title="No listings yet"
-          description="Listings will appear here once the crawler starts syncing in Phase 4."
+          description="Listings will appear here once one of your searches has synced."
         />
       )}
     </div>

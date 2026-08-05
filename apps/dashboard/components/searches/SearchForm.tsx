@@ -244,7 +244,7 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
             onChange={(event) => update("minimumScore", Number(event.target.value))}
           />
           <p className="text-xs text-text-tertiary">
-            Used once opportunity scoring ships in Phase 5.
+            Only listings scoring above this trigger a notification.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
