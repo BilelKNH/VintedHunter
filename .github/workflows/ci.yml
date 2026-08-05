@@ -137,3 +137,43 @@ jobs:
 
       - name: Test api
         run: pnpm --filter api test
+
+  docker-build:
+    # Gated on lint-and-typecheck so a commit that doesn't even typecheck doesn't burn CI
+    # minutes on the slowest job. Catches what the other jobs structurally can't: Dockerfile
+    # regressions, Prisma engine/binaryTargets mismatches, and missing system deps (Playwright on
+    # apps/worker's base image) that only surface once the images are actually built — exactly
+    # the class of bug that cost hours of local debugging before this job existed.
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # docker-compose.yml declares `env_file: .env` on api/worker/dashboard — Compose requires
+      # that file to exist to even parse the build plan, even though building itself needs no
+      # runtime secrets. Placeholder values only, same pattern as the test job's CI .env above.
+      - name: Write CI .env
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=postgresql://vinted:vinted@postgres:5432/vinted_hunter?schema=public
+          REDIS_URL=redis://redis:6379
+          NODE_ENV=production
+          JWT_SECRET=ci-only-placeholder-secret-never-used-outside-github-actions
+          COOKIE_SECRET=ci-only-placeholder-secret-never-used-outside-github-actions
+          CORS_ORIGIN=http://localhost:3000
+          VINTED_BASE_URL=https://www.vinted.fr
+          MAX_WORKERS=5
+          REQUEST_DELAY_MIN=3000
+          REQUEST_DELAY_MAX=8000
+          CACHE_DURATION=24H
+          NEXT_PUBLIC_API_URL=http://localhost:3001
+          ANTHROPIC_API_KEY=
+          OPENAI_API_KEY=
+          VISION_MODEL=claude-haiku-4-5
+          DISCORD_WEBHOOK=
+          TELEGRAM_TOKEN=
+          TELEGRAM_CHAT_ID=
+          EOF
+
+      - name: Build api/worker/dashboard images
+        run: docker compose build api worker dashboard
