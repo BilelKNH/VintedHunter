@@ -41,7 +41,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
   return async function processAnalyzeListingJob(
     job: Job<AnalyzeListingJobData>,
   ): Promise<AnalyzeListingJobResult> {
-    const { listingId, targetRoi = DEFAULT_TARGET_ROI } = job.data;
+    const { listingId, targetRoi = DEFAULT_TARGET_ROI, minimumScore } = job.data;
 
     const listing = await deps.prisma.listing.findUnique({
       where: { id: listingId },
@@ -112,7 +112,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
 
     const analysis = await deps.analysisRepository.upsertForListing(listing.id, analysisResult);
 
-    if (shouldNotify(analysisResult)) {
+    if (shouldNotify(analysisResult, minimumScore)) {
       await deps.notificationQueue.add(SEND_NOTIFICATION_JOB_NAME, { analysisId: analysis.id });
     }
 

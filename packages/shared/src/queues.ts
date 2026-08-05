@@ -11,4 +11,8 @@ export interface AnalyzeListingJobData {
   // Absent for on-demand re-analysis not tied to a search (apps/api's POST /analysis/:id) —
   // apps/worker's analyze-listing.job.ts falls back to the same default as Search.targetRoi.
   targetRoi?: number;
+  // The triggering search's minimum score (Search.minimumScore), gating whether this analysis
+  // triggers a notification (see @vinted-hunter/notifications' shouldNotify). Same
+  // absent-for-manual-reanalysis / default-fallback behavior as targetRoi above.
+  minimumScore?: number;
 }
