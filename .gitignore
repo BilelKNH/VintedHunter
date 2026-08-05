@@ -9,6 +9,11 @@ build/
 out/
 .turbo/
 
+# Compiled desktop launcher — see scripts/launcher/build.bat to rebuild
+/VintedHunterLauncher.exe
+scripts/launcher/VintedHunterLauncher.exe
+scripts/launcher/*.obj
+
 # Env — never commit real secrets, .env.example stays tracked
 .env
 .env.local
