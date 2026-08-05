@@ -3,6 +3,7 @@ import { ANALYZE_LISTING_QUEUE_NAME, type AnalyzeListingJobData } from '@vinted-
 import { createVintedClient, loadCrawlerConfig } from '@vinted-hunter/crawler';
 import { prisma } from '@vinted-hunter/database';
 import { createVisionAnalyzer, type VisionAnalyzer } from '@vinted-hunter/ai-engine';
+import { createEmbeddingClient, type EmbeddingClient } from '@vinted-hunter/similarity-engine';
 import { loadEnv } from './config/env.js';
 import { createRedisConnection } from './queue/connection.js';
 import {
@@ -19,6 +20,8 @@ import { createCrawlCache } from './cache/crawl-cache.js';
 import { createCrawlListingsRepository } from './repositories/crawl-listings.repository.js';
 import { createComparableListingsRepository } from './repositories/comparable-listings.repository.js';
 import { createAnalysisRepository } from './repositories/analysis.repository.js';
+import { createEmbeddingsRepository } from './repositories/embeddings.repository.js';
+import { markDelistedSearchListings } from './repositories/search-listings.repository.js';
 import { createCrawlSearchProcessor } from './jobs/crawl-search.job.js';
 import { createAnalyzeListingProcessor } from './jobs/analyze-listing.job.js';
 import { createSendNotificationProcessor } from './jobs/send-notification.job.js';
@@ -27,6 +30,7 @@ import { createPageFetchClient } from './browser/page-fetch-client.js';
 import { fetchHttpSender } from './notifications/fetch-http-sender.js';
 
 const RECONCILE_INTERVAL_MS = 60_000;
+const DELISTING_CHECK_INTERVAL_MS = 15 * 60_000;
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -47,9 +51,14 @@ async function main(): Promise<void> {
   const crawlListingsRepository = createCrawlListingsRepository(prisma);
   const comparableListingsRepository = createComparableListingsRepository(prisma);
   const analysisRepository = createAnalysisRepository(prisma);
+  const embeddingsRepository = createEmbeddingsRepository(prisma);
 
   const visionAnalyzer: VisionAnalyzer | null = env.ANTHROPIC_API_KEY
     ? createVisionAnalyzer({ apiKey: env.ANTHROPIC_API_KEY, model: env.VISION_MODEL })
+    : null;
+
+  const embeddingClient: EmbeddingClient | null = env.OPENAI_API_KEY
+    ? createEmbeddingClient({ apiKey: env.OPENAI_API_KEY, model: env.EMBEDDING_MODEL })
     : null;
 
   const crawlSearchProcessor = createCrawlSearchProcessor({
@@ -65,6 +74,8 @@ async function main(): Promise<void> {
     analysisRepository,
     notificationQueue: sendNotificationQueue,
     visionAnalyzer,
+    embeddingClient,
+    embeddingsRepository,
   });
   const sendNotificationProcessor = createSendNotificationProcessor({
     prisma,
@@ -110,11 +121,18 @@ async function main(): Promise<void> {
     });
   }, RECONCILE_INTERVAL_MS);
 
+  const delistingInterval = setInterval(() => {
+    markDelistedSearchListings(prisma).catch((error: unknown) => {
+      console.error('[worker] delisting check failed', error);
+    });
+  }, DELISTING_CHECK_INTERVAL_MS);
+
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     clearInterval(reconcileInterval);
+    clearInterval(delistingInterval);
     await Promise.all(workers.map((worker) => worker.close()));
     await Promise.all(
       [crawlSearchQueue, analyzeListingQueue, sendNotificationQueue].map((queue) => queue.close()),
@@ -129,7 +147,7 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown());
 
   console.log(
-    `[worker] crawler+intelligence online — concurrency=${crawlerConfig.maxWorkers}, vision=${visionAnalyzer ? env.VISION_MODEL : 'disabled'}`,
+    `[worker] crawler+intelligence online — concurrency=${crawlerConfig.maxWorkers}, vision=${visionAnalyzer ? env.VISION_MODEL : 'disabled'}, embeddings=${embeddingClient ? env.EMBEDDING_MODEL : 'disabled'}`,
   );
 }
 

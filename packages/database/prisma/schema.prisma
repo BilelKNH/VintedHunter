@@ -1,15 +1,19 @@
 generator client {
-  provider      = "prisma-client-js"
+  provider        = "prisma-client-js"
   // Pinned explicitly (not just "native") — apps/worker runs on Debian slim (openssl 3.0.x) and
   // apps/api/dashboard run on Alpine (musl); relying on build-time "native" detection alone has
   // produced a mismatched engine before when Docker layer caching reused a generate step from a
   // differently-based image.
-  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  binaryTargets   = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  // Required for the `vector` extension/type below (Listing.embedding) — Prisma can't model
+  // pgvector natively, so that field is declared Unsupported() and read/written via raw SQL.
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 enum UserRole {
@@ -54,6 +58,7 @@ model User {
   purchases        Purchase[]
   refreshTokens    RefreshToken[]
   favorites        Favorite[]
+  manualComparables ManualComparable[]
 
   @@map("users")
 }
@@ -78,6 +83,7 @@ model Search {
   enabled          Boolean  @default(true)
   createdAt        DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchListings   SearchListing[]
 
   @@index([userId])
   @@map("searches")
@@ -106,10 +112,52 @@ model Listing {
   purchases     Purchase[]
   notifications Notification[]
   favoritedBy   Favorite[]
+  searchListings     SearchListing[]
+  manualComparables  ManualComparable[]
+  // Embeddings-based similarity (packages/similarity-engine) — nullable: absent whenever
+  // OPENAI_API_KEY isn't configured or the embedding call failed, never backfilled by force.
+  // Unsupported() because Prisma Client can't hydrate pgvector's `vector` type; all reads/writes
+  // go through $queryRaw/$executeRaw (apps/worker/src/repositories/embeddings.repository.ts).
+  embedding     Unsupported("vector(1536)")?
 
   @@index([sellerId])
   @@index([source])
   @@map("listings")
+}
+
+model SearchListing {
+  id          String    @id @default(uuid())
+  searchId    String
+  listingId   String
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  // Set once lastSeenAt falls too far behind for the listing to still plausibly be live —
+  // see markDelistedSearchListings() in apps/worker. Foundation for a future resale-time
+  // estimate; nothing consumes this yet.
+  delistedAt  DateTime?
+  search      Search    @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  listing     Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([searchId, listingId])
+  @@index([searchId])
+  @@map("search_listings")
+}
+
+model ManualComparable {
+  id         String   @id @default(uuid())
+  userId     String
+  listingId  String
+  price      Float
+  currency   String   @default("EUR")
+  sourceName String
+  sourceUrl  String?
+  note       String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("manual_comparables")
 }
 
 model Seller {

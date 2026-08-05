@@ -19,6 +19,7 @@
     "@vinted-hunter/notifications": "workspace:*",
     "@vinted-hunter/pricing-engine": "workspace:*",
     "@vinted-hunter/shared": "workspace:*",
+    "@vinted-hunter/similarity-engine": "workspace:*",
     "bullmq": "^5.34.0",
     "ioredis": "^5.4.0",
     "playwright": "^1.49.0",

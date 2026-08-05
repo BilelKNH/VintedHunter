@@ -101,7 +101,7 @@ export function createCrawlSearchProcessor(deps: CrawlSearchJobDeps) {
         if (!matchesSearchCriteria(normalized, searchConfig)) {
           continue;
         }
-        const result = await deps.listingsRepository.upsertListing(normalized);
+        const result = await deps.listingsRepository.upsertListing(normalized, search.id);
         collected += 1;
         if (result.isNew) {
           newCount += 1;

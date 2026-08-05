@@ -2,10 +2,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { Job } from 'bullmq';
 import type { Listing, PrismaClient } from '@vinted-hunter/database';
 import type { VisionAnalysisResult, VisionAnalyzer } from '@vinted-hunter/ai-engine';
+import type { EmbeddingClient } from '@vinted-hunter/similarity-engine';
 import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
 import { createComparableListingsRepository } from '../repositories/comparable-listings.repository.js';
 import { createAnalysisRepository } from '../repositories/analysis.repository.js';
+import type { EmbeddingsRepository } from '../repositories/embeddings.repository.js';
 import { createAnalyzeListingProcessor, type NotificationQueue } from './analyze-listing.job.js';
 import type { AnalyzeListingJobData } from '@vinted-hunter/shared';
 
@@ -65,6 +67,18 @@ function fakeVisionAnalyzer(
       typeof result === 'function' ? result() : result,
     ),
   };
+}
+
+function fakeEmbeddingClient(
+  result: number[] | (() => Promise<number[]>),
+): EmbeddingClient {
+  return {
+    embed: vi.fn().mockImplementation(async () => (typeof result === 'function' ? result() : result)),
+  };
+}
+
+function fakeEmbeddingsRepository(): EmbeddingsRepository & { updateEmbedding: ReturnType<typeof vi.fn> } {
+  return { updateEmbedding: vi.fn().mockResolvedValue(undefined) };
 }
 
 const neutralVisionResult: VisionAnalysisResult = {
@@ -362,6 +376,65 @@ describe('analyze-listing job processor', () => {
       analysisRepository: createAnalysisRepository(prisma),
       notificationQueue,
       visionAnalyzer: null,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(result.analyzed).toBe(true);
+  });
+
+  it('computes and persists an embedding when an embedding client is configured', async () => {
+    const listing = await createListing();
+    const embedding = Array(1536).fill(0.1);
+    const embeddingClient = fakeEmbeddingClient(embedding);
+    const embeddingsRepository = fakeEmbeddingsRepository();
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      embeddingClient,
+      embeddingsRepository,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(result.analyzed).toBe(true);
+    expect(embeddingClient.embed).toHaveBeenCalledWith(
+      expect.objectContaining({ title: listing.title, brand: listing.brand }),
+    );
+    expect(embeddingsRepository.updateEmbedding).toHaveBeenCalledWith(listing.id, embedding);
+  });
+
+  it('completes the job when the embedding client throws, without persisting anything', async () => {
+    const listing = await createListing();
+    const embeddingClient: EmbeddingClient = {
+      embed: vi.fn().mockRejectedValue(new Error('OpenAI API unavailable')),
+    };
+    const embeddingsRepository = fakeEmbeddingsRepository();
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      embeddingClient,
+      embeddingsRepository,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id }));
+
+    expect(result.analyzed).toBe(true);
+    expect(embeddingsRepository.updateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it('does not call the embedding client when none is configured', async () => {
+    const listing = await createListing();
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+      embeddingClient: null,
     });
 
     const result = await processor(fakeJob({ listingId: listing.id }));

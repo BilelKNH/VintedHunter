@@ -11,6 +11,11 @@ const envSchema = z.object({
   // when unset (same "feature degrades gracefully" pattern as the notification channels above).
   ANTHROPIC_API_KEY: z.string().optional(),
   VISION_MODEL: z.string().default('claude-haiku-4-5'),
+  // Similarity engine (packages/similarity-engine) — same optional/degrade pattern: without a
+  // key, analyze-listing.job.ts never computes an embedding and comparable-listings.repository
+  // falls back to its pre-existing brand/category-only matching.
+  OPENAI_API_KEY: z.string().optional(),
+  EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
 });
 
 export type Env = z.infer<typeof envSchema>;

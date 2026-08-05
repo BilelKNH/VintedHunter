@@ -112,6 +112,7 @@ jobs:
           ANTHROPIC_API_KEY=
           OPENAI_API_KEY=
           VISION_MODEL=claude-haiku-4-5
+          EMBEDDING_MODEL=text-embedding-3-small
           EOF
 
       # Pure packages have no shared DB state and can run in parallel via turbo.
@@ -124,6 +125,7 @@ jobs:
           --filter=@vinted-hunter/notifications
           --filter=@vinted-hunter/pricing-engine
           --filter=@vinted-hunter/shared
+          --filter=@vinted-hunter/similarity-engine
           --filter=dashboard
 
       # worker and api share one Postgres `test` schema with no cross-package concurrency
@@ -167,6 +169,7 @@ jobs:
           ANTHROPIC_API_KEY=
           OPENAI_API_KEY=
           VISION_MODEL=claude-haiku-4-5
+          EMBEDDING_MODEL=text-embedding-3-small
           EOF
 
       - name: Build api/worker/dashboard images

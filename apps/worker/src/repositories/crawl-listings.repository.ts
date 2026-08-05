@@ -9,7 +9,7 @@ export interface UpsertListingResult {
 
 export interface CrawlListingsRepository {
   findExistingExternalIds(externalIds: string[]): Promise<Set<string>>;
-  upsertListing(data: CrawledListing): Promise<UpsertListingResult>;
+  upsertListing(data: CrawledListing, searchId: string): Promise<UpsertListingResult>;
 }
 
 const MAX_SERIALIZATION_RETRIES = 3;
@@ -47,7 +47,7 @@ export function createCrawlListingsRepository(prisma: PrismaClient): CrawlListin
       return new Set(rows.map((row) => row.externalId));
     },
 
-    async upsertListing(data) {
+    async upsertListing(data, searchId) {
       // Two different Searches can easily match the same Vinted item, so concurrent
       // crawl-search jobs (Worker concurrency = MAX_WORKERS) can race on the same externalId.
       // Serializable isolation + retry-on-conflict prevents both from reading the same stale
@@ -112,6 +112,15 @@ export function createCrawlListingsRepository(prisma: PrismaClient): CrawlListin
             if (priceChanged) {
               await tx.priceHistory.create({ data: { listingId: listing.id, price: data.price } });
             }
+
+            // Marks this listing as still-live for this search — feeds delisting detection
+            // (markDelistedSearchListings) rather than anything read in this job. Upsert instead
+            // of create because the same listing legitimately gets re-seen across many crawls.
+            await tx.searchListing.upsert({
+              where: { searchId_listingId: { searchId, listingId: listing.id } },
+              create: { searchId, listingId: listing.id },
+              update: { lastSeenAt: new Date(), delistedAt: null },
+            });
 
             return { listing, isNew: existing == null, priceChanged };
           },

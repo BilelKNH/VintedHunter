@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16
+    # pgvector adds the `vector` extension on top of stock postgres:16 — needed for
+    # Listing.embedding (packages/similarity-engine). Same major version, no other behavior change.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: vinted
