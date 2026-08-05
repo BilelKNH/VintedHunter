@@ -3,7 +3,7 @@ import type { PrismaClient } from '@vinted-hunter/database';
 import { CRAWL_PRIORITY } from '@vinted-hunter/crawler';
 import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
-import { reconcileSchedule, type RepeatableJobInfo, type SchedulerQueue } from './scheduler.js';
+import { reconcileSchedule, type JobSchedulerInfo, type SchedulerQueue } from './scheduler.js';
 
 let prisma: PrismaClient;
 
@@ -19,11 +19,11 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-function fakeQueue(repeatableJobs: RepeatableJobInfo[] = []): SchedulerQueue {
+function fakeQueue(jobSchedulers: JobSchedulerInfo[] = []): SchedulerQueue {
   return {
-    getRepeatableJobs: vi.fn().mockResolvedValue(repeatableJobs),
-    add: vi.fn().mockResolvedValue(undefined),
-    removeRepeatableByKey: vi.fn().mockResolvedValue(undefined),
+    getJobSchedulers: vi.fn().mockResolvedValue(jobSchedulers),
+    upsertJobScheduler: vi.fn().mockResolvedValue(undefined),
+    removeJobScheduler: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -54,64 +54,71 @@ async function createSearch(
 }
 
 describe('reconcileSchedule', () => {
-  it('adds a repeatable job for a newly enabled search with the correct priority', async () => {
+  it('upserts a job scheduler for an enabled search with the correct priority', async () => {
     const search = await createSearch({ brands: ['Nike Tech Fleece'], frequency: 15 });
     const queue = fakeQueue([]);
 
     await reconcileSchedule(prisma, queue);
 
-    expect(queue.add).toHaveBeenCalledWith(
-      'crawl-search',
-      { searchId: search.id },
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      `search:${search.id}`,
+      { every: 15 * 60_000 },
       expect.objectContaining({
-        jobId: `search:${search.id}`,
-        repeat: { every: 15 * 60_000 },
-        priority: CRAWL_PRIORITY.HIGH,
+        name: 'crawl-search',
+        data: { searchId: search.id },
+        opts: expect.objectContaining({ priority: CRAWL_PRIORITY.HIGH }),
       }),
     );
   });
 
-  it('does not re-add a search whose schedule is already correct', async () => {
+  it('upserts unconditionally even when a scheduler already exists for the search (idempotent by design)', async () => {
     const search = await createSearch({ frequency: 30 });
-    const queue = fakeQueue([{ key: 'k1', id: `search:${search.id}`, every: String(30 * 60_000) }]);
+    const queue = fakeQueue([{ key: `search:${search.id}` }]);
 
     await reconcileSchedule(prisma, queue);
 
-    expect(queue.add).not.toHaveBeenCalled();
-    expect(queue.removeRepeatableByKey).not.toHaveBeenCalled();
-  });
-
-  it('replaces the schedule when frequency changed', async () => {
-    const search = await createSearch({ frequency: 60 });
-    const queue = fakeQueue([
-      { key: 'old-key', id: `search:${search.id}`, every: String(15 * 60_000) },
-    ]);
-
-    await reconcileSchedule(prisma, queue);
-
-    expect(queue.removeRepeatableByKey).toHaveBeenCalledWith('old-key');
-    expect(queue.add).toHaveBeenCalledWith(
-      'crawl-search',
-      { searchId: search.id },
-      expect.objectContaining({ repeat: { every: 60 * 60_000 } }),
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      `search:${search.id}`,
+      { every: 30 * 60_000 },
+      expect.anything(),
     );
+    expect(queue.removeJobScheduler).not.toHaveBeenCalled();
   });
 
-  it('removes repeatable jobs for searches that are no longer enabled', async () => {
-    const queue = fakeQueue([{ key: 'stale-key', id: 'search:deleted-search', every: '900000' }]);
+  it('removes job schedulers for searches that are no longer enabled', async () => {
+    const queue = fakeQueue([{ key: 'search:deleted-search' }]);
 
     await reconcileSchedule(prisma, queue);
 
-    expect(queue.removeRepeatableByKey).toHaveBeenCalledWith('stale-key');
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(queue.removeJobScheduler).toHaveBeenCalledWith('search:deleted-search');
+    expect(queue.upsertJobScheduler).not.toHaveBeenCalled();
   });
 
-  it('does not schedule a disabled search', async () => {
+  it('does not upsert or remove anything for a disabled search with no existing scheduler', async () => {
     await createSearch({ enabled: false });
     const queue = fakeQueue([]);
 
     await reconcileSchedule(prisma, queue);
 
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(queue.upsertJobScheduler).not.toHaveBeenCalled();
+    expect(queue.removeJobScheduler).not.toHaveBeenCalled();
+  });
+
+  it('leaves an enabled search alone while removing an unrelated orphaned scheduler in the same pass', async () => {
+    const search = await createSearch({ frequency: 60 });
+    const queue = fakeQueue([
+      { key: `search:${search.id}` },
+      { key: 'search:some-other-deleted-search' },
+    ]);
+
+    await reconcileSchedule(prisma, queue);
+
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      `search:${search.id}`,
+      { every: 60 * 60_000 },
+      expect.anything(),
+    );
+    expect(queue.removeJobScheduler).toHaveBeenCalledWith('search:some-other-deleted-search');
+    expect(queue.removeJobScheduler).toHaveBeenCalledTimes(1);
   });
 });
