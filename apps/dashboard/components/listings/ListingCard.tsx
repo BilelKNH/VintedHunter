@@ -3,7 +3,9 @@ import type { Listing } from "@vinted-hunter/shared";
 import { Badge } from "../ui/badge";
 import { FavoriteButton } from "./FavoriteButton";
 import { AnalysisPendingBadge } from "./AnalysisPendingBadge";
+import { AnalysisScoreBadge, recommendationCardAccent } from "./AnalysisScoreBadge";
 import { formatPrice, formatRelativeDate } from "../../utils/format";
+import { cn } from "../../utils/cn";
 
 export function ListingCard({ listing }: { listing: Listing }) {
   const image = listing.images[0];
@@ -11,7 +13,10 @@ export function ListingCard({ listing }: { listing: Listing }) {
   return (
     <Link
       href={`/listings/${listing.id}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border-default bg-bg-surface transition-all hover:border-accent-primary/50 hover:shadow-lg hover:shadow-accent-primary/5"
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-lg border border-border-default bg-bg-surface transition-all hover:border-accent-primary/50 hover:shadow-lg hover:shadow-accent-primary/5",
+        recommendationCardAccent(listing.analysis?.recommendation),
+      )}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-bg-elevated">
         {image ? (
@@ -47,7 +52,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
             {formatRelativeDate(listing.publishedAt)}
           </span>
         </div>
-        <AnalysisPendingBadge />
+        {listing.analysis ? (
+          <AnalysisScoreBadge analysis={listing.analysis} />
+        ) : (
+          <AnalysisPendingBadge />
+        )}
       </div>
     </Link>
   );

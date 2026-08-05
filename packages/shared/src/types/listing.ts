@@ -1,5 +1,15 @@
 import type { Marketplace } from "../marketplace.js";
 
+// Mirrors @vinted-hunter/analyzer's Recommendation — duplicated rather than imported so this
+// foundational package stays a dependency-free leaf (see packages/analyzer's own zero inbound
+// deps from its siblings).
+export type ListingRecommendation = "IGNORE" | "WATCH" | "GOOD_OPPORTUNITY" | "STRONG_BUY";
+
+export interface ListingAnalysisSummary {
+  score: number;
+  recommendation: ListingRecommendation;
+}
+
 // Mirrors the Prisma Listing model as it's actually shaped over the wire — date fields are
 // ISO strings here (JSON has no Date type), not the Date objects Prisma returns server-side.
 export interface Listing {
@@ -19,4 +29,6 @@ export interface Listing {
   sellerId: string | null;
   publishedAt: string | null;
   createdAt: string;
+  // null until the analyze-listing job has scored this listing (see apps/worker).
+  analysis: ListingAnalysisSummary | null;
 }

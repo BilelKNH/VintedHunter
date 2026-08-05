@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { ListingGallery } from "@/components/listings/ListingGallery";
 import { FavoriteButton } from "@/components/listings/FavoriteButton";
 import { AnalysisPendingBadge } from "@/components/listings/AnalysisPendingBadge";
+import { AnalysisScoreBadge } from "@/components/listings/AnalysisScoreBadge";
 import { useListing } from "@/hooks/useListings";
 import { formatPrice, formatRelativeDate } from "@/utils/format";
 
@@ -57,7 +58,11 @@ export default function ListingDetailPage() {
           </span>
         </div>
 
-        <AnalysisPendingBadge />
+        {listing.analysis ? (
+          <AnalysisScoreBadge analysis={listing.analysis} />
+        ) : (
+          <AnalysisPendingBadge />
+        )}
 
         {listing.description ? (
           <p className="whitespace-pre-line text-sm text-text-secondary">
