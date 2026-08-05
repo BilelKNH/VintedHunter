@@ -130,23 +130,26 @@ describe('crawl-search job processor', () => {
   it('does not enqueue analysis for a listing that already existed', async () => {
     const search = await createSearch();
     const listingsRepository = createCrawlListingsRepository(prisma);
-    await listingsRepository.upsertListing({
-      externalId: '111',
-      source: 'VINTED',
-      title: 'Nike Tech Fleece Hoodie',
-      description: null,
-      brand: 'Nike',
-      category: null,
-      size: 'L',
-      condition: null,
-      price: 35,
-      currency: 'EUR',
-      url: 'https://www.vinted.fr/items/111',
-      images: [],
-      seller: null,
-      publishedAt: null,
-      contentHash: 'hash',
-    });
+    await listingsRepository.upsertListing(
+      {
+        externalId: '111',
+        source: 'VINTED',
+        title: 'Nike Tech Fleece Hoodie',
+        description: null,
+        brand: 'Nike',
+        category: null,
+        size: 'L',
+        condition: null,
+        price: 35,
+        currency: 'EUR',
+        url: 'https://www.vinted.fr/items/111',
+        images: [],
+        seller: null,
+        publishedAt: null,
+        contentHash: 'hash',
+      },
+      search.id,
+    );
 
     const { client } = fakeVintedClient([[rawItem()]]);
     const processor = createCrawlSearchProcessor({
@@ -184,23 +187,26 @@ describe('crawl-search job processor', () => {
     const search = await createSearch();
     const listingsRepository = createCrawlListingsRepository(prisma);
     // Pre-seed the listing so page 1 is "all already known".
-    await listingsRepository.upsertListing({
-      externalId: '111',
-      source: 'VINTED',
-      title: 'Nike Tech Fleece Hoodie',
-      description: null,
-      brand: 'Nike',
-      category: null,
-      size: 'L',
-      condition: null,
-      price: 35,
-      currency: 'EUR',
-      url: 'https://www.vinted.fr/items/111',
-      images: [],
-      seller: null,
-      publishedAt: null,
-      contentHash: 'hash',
-    });
+    await listingsRepository.upsertListing(
+      {
+        externalId: '111',
+        source: 'VINTED',
+        title: 'Nike Tech Fleece Hoodie',
+        description: null,
+        brand: 'Nike',
+        category: null,
+        size: 'L',
+        condition: null,
+        price: 35,
+        currency: 'EUR',
+        url: 'https://www.vinted.fr/items/111',
+        images: [],
+        seller: null,
+        publishedAt: null,
+        contentHash: 'hash',
+      },
+      search.id,
+    );
 
     const tracked = fakeVintedClient([[rawItem()], [rawItem({ id: 222 })]]);
     const processor = createCrawlSearchProcessor({

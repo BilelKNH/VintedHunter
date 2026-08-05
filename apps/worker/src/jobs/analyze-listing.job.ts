@@ -4,9 +4,11 @@ import { computeAnalysis, type ListingForAnalysis } from '@vinted-hunter/analyze
 import { estimateMarketPrice } from '@vinted-hunter/pricing-engine';
 import { shouldNotify } from '@vinted-hunter/notifications';
 import type { VisionAnalysisResult, VisionAnalyzer } from '@vinted-hunter/ai-engine';
+import type { EmbeddingClient } from '@vinted-hunter/similarity-engine';
 import type { AnalyzeListingJobData } from '@vinted-hunter/shared';
 import type { ComparableListingsRepository } from '../repositories/comparable-listings.repository.js';
 import type { AnalysisRepository } from '../repositories/analysis.repository.js';
+import type { EmbeddingsRepository } from '../repositories/embeddings.repository.js';
 import type { SendNotificationJobData } from '../queue/queues.js';
 
 const MAX_COMPARABLES = 20;
@@ -29,6 +31,10 @@ export interface AnalyzeListingJobDeps {
   // Phase 6: optional — null/absent when ANTHROPIC_API_KEY isn't configured. computeAnalysis
   // falls back to its pre-Phase-6 behavior when no vision result is available.
   visionAnalyzer?: VisionAnalyzer | null;
+  // Similarity engine: optional — null/absent when OPENAI_API_KEY isn't configured.
+  // comparableListingsRepository falls back to brand/category matching without it.
+  embeddingClient?: EmbeddingClient | null;
+  embeddingsRepository?: EmbeddingsRepository;
 }
 
 export interface AnalyzeListingJobResult {
@@ -51,11 +57,30 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       return { analyzed: false };
     }
 
+    let embedding: number[] | null = null;
+    if (deps.embeddingClient) {
+      try {
+        embedding = await deps.embeddingClient.embed({
+          title: listing.title,
+          description: listing.description,
+          brand: listing.brand,
+          category: listing.category,
+          size: listing.size,
+        });
+        await deps.embeddingsRepository?.updateEmbedding(listing.id, embedding);
+      } catch (error) {
+        // Same "best-effort" contract as vision below: a flaky OpenAI call must never block the
+        // crawl->analyze pipeline. findComparables falls back to brand/category matching.
+        console.error(`[analyze-listing] embedding failed for listing ${listing.id}`, error);
+      }
+    }
+
     const comparables = await deps.comparableListingsRepository.findComparables({
       excludeListingId: listing.id,
       brand: listing.brand,
       category: listing.category,
       limit: MAX_COMPARABLES,
+      embedding,
     });
 
     const priceEstimate = estimateMarketPrice(comparables, {

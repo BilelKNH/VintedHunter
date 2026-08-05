@@ -21,6 +21,7 @@ export const DEFAULT_LISTING_FILTERS: ListingFiltersValue = {
 
 export interface ListingFiltersProps {
   listings: Listing[];
+  brands: string[];
   value: ListingFiltersValue;
   onChange(value: ListingFiltersValue): void;
 }
@@ -30,8 +31,7 @@ function distinctValues(listings: Listing[], key: "brand" | "category"): string[
   return Array.from(new Set(values)).sort();
 }
 
-export function ListingFilters({ listings, value, onChange }: ListingFiltersProps) {
-  const brands = useMemo(() => distinctValues(listings, "brand"), [listings]);
+export function ListingFilters({ listings, brands, value, onChange }: ListingFiltersProps) {
   const categories = useMemo(() => distinctValues(listings, "category"), [listings]);
 
   function update(patch: Partial<ListingFiltersValue>) {

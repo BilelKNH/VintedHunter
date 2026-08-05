@@ -1,6 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { CrawledListing } from '@vinted-hunter/crawler';
-import type { PrismaClient } from '@vinted-hunter/database';
+import type { PrismaClient, Search } from '@vinted-hunter/database';
 import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
 import {
@@ -10,10 +10,29 @@ import {
 
 let prisma: PrismaClient;
 let repository: CrawlListingsRepository;
+let search: Search;
 
 beforeAll(() => {
   prisma = createTestPrismaClient();
   repository = createCrawlListingsRepository(prisma);
+});
+
+beforeEach(async () => {
+  const user = await prisma.user.create({
+    data: { email: `${Date.now()}-${Math.random()}@example.com`, password: 'hash' },
+  });
+  search = await prisma.search.create({
+    data: {
+      userId: user.id,
+      name: 'Nike Tech Fleece L',
+      brands: ['Nike'],
+      categories: [],
+      sizes: [],
+      keywords: [],
+      excludedKeywords: [],
+      frequency: 15,
+    },
+  });
 });
 
 afterEach(async () => {
@@ -45,10 +64,14 @@ function crawledListing(overrides: Partial<CrawledListing> = {}): CrawledListing
   };
 }
 
+function upsert(overrides: Partial<CrawledListing> = {}) {
+  return repository.upsertListing(crawledListing(overrides), search.id);
+}
+
 describe('crawl-listings.repository', () => {
   describe('upsertListing', () => {
     it('creates a new listing and its seller', async () => {
-      const result = await repository.upsertListing(crawledListing());
+      const result = await upsert();
 
       expect(result.isNew).toBe(true);
       expect(result.priceChanged).toBe(false);
@@ -59,8 +82,8 @@ describe('crawl-listings.repository', () => {
     });
 
     it('is idempotent for the same externalId — updates instead of duplicating', async () => {
-      await repository.upsertListing(crawledListing());
-      const result = await repository.upsertListing(crawledListing({ title: 'Updated title' }));
+      await upsert();
+      const result = await upsert({ title: 'Updated title' });
 
       expect(result.isNew).toBe(false);
       expect(result.listing.title).toBe('Updated title');
@@ -70,8 +93,8 @@ describe('crawl-listings.repository', () => {
     });
 
     it('records a PriceHistory row when the price changes on an existing listing', async () => {
-      await repository.upsertListing(crawledListing({ price: 35 }));
-      const result = await repository.upsertListing(crawledListing({ price: 30 }));
+      await upsert({ price: 35 });
+      const result = await upsert({ price: 30 });
 
       expect(result.priceChanged).toBe(true);
 
@@ -83,8 +106,8 @@ describe('crawl-listings.repository', () => {
     });
 
     it('does not record PriceHistory when the price is unchanged', async () => {
-      await repository.upsertListing(crawledListing({ price: 35 }));
-      const result = await repository.upsertListing(crawledListing({ price: 35 }));
+      await upsert({ price: 35 });
+      const result = await upsert({ price: 35 });
 
       expect(result.priceChanged).toBe(false);
       const history = await prisma.priceHistory.findMany({
@@ -94,9 +117,7 @@ describe('crawl-listings.repository', () => {
     });
 
     it('handles a listing with no seller', async () => {
-      const result = await repository.upsertListing(
-        crawledListing({ seller: null, externalId: 'vinted-2' }),
-      );
+      const result = await upsert({ seller: null, externalId: 'vinted-2' });
 
       expect(result.listing.sellerId).toBeNull();
     });
@@ -105,12 +126,9 @@ describe('crawl-listings.repository', () => {
       // Simulates two Searches matching the same Vinted item and their crawl-search jobs
       // running concurrently (Worker concurrency = MAX_WORKERS) — without the Serializable
       // transaction, both could read the same stale price and both insert a PriceHistory row.
-      await repository.upsertListing(crawledListing({ price: 35 }));
+      await upsert({ price: 35 });
 
-      const [first, second] = await Promise.all([
-        repository.upsertListing(crawledListing({ price: 30 })),
-        repository.upsertListing(crawledListing({ price: 30 })),
-      ]);
+      const [first, second] = await Promise.all([upsert({ price: 30 }), upsert({ price: 30 })]);
 
       const history = await prisma.priceHistory.findMany({
         where: { listingId: first.listing.id },
@@ -118,11 +136,37 @@ describe('crawl-listings.repository', () => {
       expect(history).toHaveLength(1);
       expect([first.priceChanged, second.priceChanged].filter(Boolean)).toHaveLength(1);
     });
+
+    it('upserts a SearchListing row marking the listing as seen by this search', async () => {
+      const result = await upsert();
+
+      const searchListing = await prisma.searchListing.findUnique({
+        where: { searchId_listingId: { searchId: search.id, listingId: result.listing.id } },
+      });
+      expect(searchListing).not.toBeNull();
+      expect(searchListing?.delistedAt).toBeNull();
+    });
+
+    it('clears delistedAt and bumps lastSeenAt when a previously-delisted listing is seen again', async () => {
+      const first = await upsert();
+      await prisma.searchListing.update({
+        where: { searchId_listingId: { searchId: search.id, listingId: first.listing.id } },
+        data: { delistedAt: new Date(), lastSeenAt: new Date('2020-01-01') },
+      });
+
+      await upsert({ price: 999 }); // re-seen by the same search
+
+      const searchListing = await prisma.searchListing.findUnique({
+        where: { searchId_listingId: { searchId: search.id, listingId: first.listing.id } },
+      });
+      expect(searchListing?.delistedAt).toBeNull();
+      expect(searchListing?.lastSeenAt.getTime()).toBeGreaterThan(new Date('2020-01-01').getTime());
+    });
   });
 
   describe('findExistingExternalIds', () => {
     it('returns only the externalIds that exist', async () => {
-      await repository.upsertListing(crawledListing({ externalId: 'vinted-1' }));
+      await upsert({ externalId: 'vinted-1' });
 
       const found = await repository.findExistingExternalIds(['vinted-1', 'vinted-missing']);
 
