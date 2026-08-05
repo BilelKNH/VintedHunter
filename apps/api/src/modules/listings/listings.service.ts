@@ -27,6 +27,7 @@ function toListingResponse(listing: ListingWithAnalysis): ListingResponse {
       ? {
           score: listing.analysis.score,
           recommendation: recommendationForScore(listing.analysis.score),
+          maxBuyPrice: listing.analysis.maxBuyPrice,
         }
       : null,
   };

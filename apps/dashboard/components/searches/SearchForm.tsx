@@ -26,6 +26,7 @@ export interface SearchFormValues {
   minPrice: string;
   maxPrice: string;
   minimumScore: number;
+  targetRoi: number;
   frequency: number;
   enabled: boolean;
 }
@@ -40,6 +41,7 @@ const EMPTY_VALUES: SearchFormValues = {
   minPrice: "",
   maxPrice: "",
   minimumScore: 70,
+  targetRoi: 30,
   frequency: 60,
   enabled: true,
 };
@@ -78,6 +80,7 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
         minPrice: values.minPrice ? Number(values.minPrice) : undefined,
         maxPrice: values.maxPrice ? Number(values.maxPrice) : undefined,
         minimumScore: values.minimumScore,
+        targetRoi: values.targetRoi,
         frequency: values.frequency,
         enabled: values.enabled,
       });
@@ -167,7 +170,7 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="minimumScore">Minimum score</Label>
           <Input
@@ -180,6 +183,19 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
           />
           <p className="text-xs text-text-tertiary">
             Used once opportunity scoring ships in Phase 5.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="targetRoi">Target margin (ROI %)</Label>
+          <Input
+            id="targetRoi"
+            type="number"
+            min={0}
+            value={values.targetRoi}
+            onChange={(event) => update("targetRoi", Number(event.target.value))}
+          />
+          <p className="text-xs text-text-tertiary">
+            Caps the recommended max buy price shown on matching listings.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">

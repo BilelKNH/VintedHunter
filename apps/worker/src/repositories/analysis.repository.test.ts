@@ -46,6 +46,7 @@ function analysisResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult
     estimatedValue: 100,
     estimatedProfit: 71,
     roi: 245,
+    maxBuyPrice: 76.92,
     recommendation: 'STRONG_BUY',
     explanation: ['Prix 71% sous la valeur marché estimée'],
     photoQualityScore: null,

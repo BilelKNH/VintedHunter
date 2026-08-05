@@ -33,6 +33,7 @@ describe("SearchForm", () => {
       minPrice: undefined,
       maxPrice: undefined,
       minimumScore: 70,
+      targetRoi: 30,
       frequency: 60,
       enabled: true,
     });

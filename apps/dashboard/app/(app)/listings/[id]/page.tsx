@@ -59,7 +59,15 @@ export default function ListingDetailPage() {
         </div>
 
         {listing.analysis ? (
-          <AnalysisScoreBadge analysis={listing.analysis} />
+          <div className="flex flex-col gap-1.5">
+            <AnalysisScoreBadge analysis={listing.analysis} />
+            <p className="text-sm text-text-secondary">
+              Prix d&apos;achat max recommandé :{" "}
+              <span className="font-numeric font-semibold text-text-primary">
+                {formatPrice(listing.analysis.maxBuyPrice, listing.currency)}
+              </span>
+            </p>
+          </div>
         ) : (
           <AnalysisPendingBadge />
         )}

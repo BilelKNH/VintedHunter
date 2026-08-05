@@ -119,10 +119,10 @@ describe('crawl-search job processor', () => {
     const listing = await prisma.listing.findUnique({ where: { externalId: '111' } });
     expect(listing?.title).toBe('Nike Tech Fleece Hoodie');
     expect(cache.markCrawled).toHaveBeenCalledWith(search.id);
-    expect(analyzeListingQueue.add).toHaveBeenCalledWith(
-      'analyze-listing',
-      expect.objectContaining({ listingId: listing?.id }),
-    );
+    expect(analyzeListingQueue.add).toHaveBeenCalledWith('analyze-listing', {
+      listingId: listing?.id,
+      targetRoi: search.targetRoi,
+    });
   });
 
   it('does not enqueue analysis for a listing that already existed', async () => {

@@ -99,6 +99,36 @@ describe('analyze-listing job processor', () => {
     expect(stored?.score).toBe(result.score);
   });
 
+  it('defaults to a 30% target margin (matching Search.targetRoi) when the job carries no targetRoi', async () => {
+    const listing = await createListing({ price: 50 });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+    });
+
+    await processor(fakeJob({ listingId: listing.id }));
+
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.maxBuyPrice).toBeCloseTo(stored!.estimatedValue / 1.3, 2);
+  });
+
+  it('derives maxBuyPrice from the job-provided targetRoi instead of the default', async () => {
+    const listing = await createListing({ price: 50 });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+    });
+
+    await processor(fakeJob({ listingId: listing.id, targetRoi: 50 }));
+
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.maxBuyPrice).toBeCloseTo(stored!.estimatedValue / 1.5, 2);
+  });
+
   it('does nothing for a listingId that does not exist', async () => {
     const processor = createAnalyzeListingProcessor({
       prisma,

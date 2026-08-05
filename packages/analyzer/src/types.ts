@@ -40,6 +40,9 @@ export interface AnalysisInput {
   // Absent/null when vision analysis wasn't run (no images, no API key, or it failed) —
   // computeAnalysis behaves identically to before Phase 6 in that case.
   vision?: VisionSignals | null;
+  // Percentage margin maxBuyPrice must clear against market.estimatedValue — mirrors the
+  // triggering Search's targetRoi (see packages/database's Search model).
+  targetRoi: number;
 }
 
 export type Recommendation = 'IGNORE' | 'WATCH' | 'GOOD_OPPORTUNITY' | 'STRONG_BUY';
@@ -57,6 +60,8 @@ export interface AnalysisResult {
   estimatedValue: number;
   estimatedProfit: number;
   roi: number; // percentage, e.g. 150 means +150% — matches §47's "ROI > 100%" literally
+  // Highest price to pay so a resale at estimatedValue still clears targetRoi.
+  maxBuyPrice: number;
   recommendation: Recommendation;
   explanation: string[];
   // Phase 6: vision fields, defaulted to null/[] when vision analysis wasn't run — mirrors the

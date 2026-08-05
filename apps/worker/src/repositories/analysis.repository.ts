@@ -25,6 +25,7 @@ export function createAnalysisRepository(prisma: PrismaClient): AnalysisReposito
         estimatedValue: result.estimatedValue,
         estimatedProfit: result.estimatedProfit,
         roi: result.roi,
+        maxBuyPrice: result.maxBuyPrice,
         explanation: result.explanation,
         photoQualityScore: result.photoQualityScore,
         defects: result.defects,

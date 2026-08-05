@@ -12,6 +12,7 @@ export interface Search {
   minPrice: number | null;
   maxPrice: number | null;
   minimumScore: number;
+  targetRoi: number;
   frequency: number;
   enabled: boolean;
   createdAt: string;

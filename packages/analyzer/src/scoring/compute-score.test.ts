@@ -23,6 +23,7 @@ function baseInput(
     },
     market: { estimatedValue: 100, comparableCount: 5, ...market },
     vision,
+    targetRoi: 30,
   };
 }
 
@@ -95,6 +96,30 @@ describe('computeAnalysis', () => {
 
     expect(result.estimatedProfit).toBe(-50);
     expect(result.roi).toBeCloseTo(-33.33, 1);
+  });
+
+  it('computes maxBuyPrice from estimatedValue and targetRoi, independent of the listing price', () => {
+    const input = baseInput({ price: 20 }, { estimatedValue: 130 });
+    const result = computeAnalysis({ ...input, targetRoi: 30 });
+
+    // 130 / 1.30 = 100 — the price at which reselling at 130 yields exactly +30% ROI.
+    expect(result.maxBuyPrice).toBeCloseTo(100, 2);
+  });
+
+  it('raises maxBuyPrice for a lower target margin and lowers it for a higher one', () => {
+    const input = baseInput({ price: 20 }, { estimatedValue: 100 });
+
+    const lenient = computeAnalysis({ ...input, targetRoi: 0 });
+    const strict = computeAnalysis({ ...input, targetRoi: 100 });
+
+    expect(lenient.maxBuyPrice).toBeCloseTo(100, 2);
+    expect(strict.maxBuyPrice).toBeCloseTo(50, 2);
+  });
+
+  it('includes the max buy price and target margin in the explanation', () => {
+    const result = computeAnalysis(baseInput({ price: 20 }, { estimatedValue: 130 }));
+
+    expect(result.explanation).toContain("Prix d'achat max recommandé (marge 30%) : 100.00€");
   });
 
   it('includes a discount percentage line in the explanation', () => {

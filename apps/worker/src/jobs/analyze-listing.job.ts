@@ -11,6 +11,9 @@ import type { SendNotificationJobData } from '../queue/queues.js';
 
 const MAX_COMPARABLES = 20;
 const SEND_NOTIFICATION_JOB_NAME = 'send-notification';
+// Mirrors Search.targetRoi's own @default(30) — used when this job wasn't triggered by a
+// search (e.g. apps/api's on-demand POST /analysis/:id re-analysis).
+const DEFAULT_TARGET_ROI = 30;
 
 // Narrow slice of BullMQ's Queue API (mirrors apps/worker/src/queue/scheduler.ts's
 // SchedulerQueue pattern) so tests can inject a fake without spinning up Redis.
@@ -38,7 +41,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
   return async function processAnalyzeListingJob(
     job: Job<AnalyzeListingJobData>,
   ): Promise<AnalyzeListingJobResult> {
-    const { listingId } = job.data;
+    const { listingId, targetRoi = DEFAULT_TARGET_ROI } = job.data;
 
     const listing = await deps.prisma.listing.findUnique({
       where: { id: listingId },
@@ -104,6 +107,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
         comparableCount: priceEstimate.comparableCount,
       },
       vision,
+      targetRoi,
     });
 
     const analysis = await deps.analysisRepository.upsertForListing(listing.id, analysisResult);

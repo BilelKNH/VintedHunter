@@ -80,6 +80,7 @@ describe("listings.service", () => {
           estimatedValue: 100,
           estimatedProfit: 20,
           roi: 0.2,
+          maxBuyPrice: 76.92,
           explanation: {},
           createdAt: new Date(),
           photoQualityScore: null,
@@ -95,7 +96,11 @@ describe("listings.service", () => {
 
       const result = await service.list(1, 10);
 
-      expect(result.items[0]?.analysis).toEqual({ score: 82, recommendation: "GOOD_OPPORTUNITY" });
+      expect(result.items[0]?.analysis).toEqual({
+        score: 82,
+        recommendation: "GOOD_OPPORTUNITY",
+        maxBuyPrice: 76.92,
+      });
     });
   });
 

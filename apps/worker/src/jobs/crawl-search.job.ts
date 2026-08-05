@@ -109,6 +109,7 @@ export function createCrawlSearchProcessor(deps: CrawlSearchJobDeps) {
           // listings need scoring, re-crawled/already-known ones already have an Analysis.
           await deps.analyzeListingQueue.add(ANALYZE_LISTING_JOB_NAME, {
             listingId: result.listing.id,
+            targetRoi: search.targetRoi,
           });
         }
       }

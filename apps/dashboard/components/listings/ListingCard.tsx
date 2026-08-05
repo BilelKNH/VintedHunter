@@ -45,9 +45,16 @@ export function ListingCard({ listing }: { listing: Listing }) {
           {listing.condition ? <span>&middot; {listing.condition}</span> : null}
         </div>
         <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="font-numeric text-base font-semibold text-text-primary">
-            {formatPrice(listing.price, listing.currency)}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-numeric text-base font-semibold text-text-primary">
+              {formatPrice(listing.price, listing.currency)}
+            </span>
+            {listing.analysis ? (
+              <span className="text-xs text-text-tertiary">
+                Max {formatPrice(listing.analysis.maxBuyPrice, listing.currency)}
+              </span>
+            ) : null}
+          </div>
           <span className="text-xs text-text-tertiary">
             {formatRelativeDate(listing.publishedAt)}
           </span>
