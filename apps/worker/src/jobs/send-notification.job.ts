@@ -11,9 +11,6 @@ import type { SendNotificationJobData } from '../queue/queues.js';
 export interface SendNotificationJobDeps {
   prisma: PrismaClient;
   http: HttpSender;
-  discordWebhookUrl: string | null;
-  telegramBotToken: string | null;
-  telegramChatId: string | null;
 }
 
 export interface SendNotificationJobResult {
@@ -26,13 +23,21 @@ export function createSendNotificationProcessor(deps: SendNotificationJobDeps) {
   return async function processSendNotificationJob(
     job: Job<SendNotificationJobData>,
   ): Promise<SendNotificationJobResult> {
-    const { analysisId } = job.data;
+    const { analysisId, userId } = job.data;
 
     const analysis = await deps.prisma.analysis.findUnique({
       where: { id: analysisId },
       include: { listing: true },
     });
-    if (!analysis) {
+    if (!analysis || !userId) {
+      return { sent: false, discordSent: null, telegramSent: null };
+    }
+
+    // Per-user destinations (replaces the old global DISCORD_WEBHOOK/TELEGRAM_TOKEN/
+    // TELEGRAM_CHAT_ID env vars) — the search owner's own settings, not one shared channel
+    // for every user of this instance.
+    const user = await deps.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
       return { sent: false, discordSent: null, telegramSent: null };
     }
 
@@ -47,18 +52,18 @@ export function createSendNotificationProcessor(deps: SendNotificationJobDeps) {
       explanation: Array.isArray(analysis.explanation) ? (analysis.explanation as string[]) : [],
     };
 
-    const discordSent = deps.discordWebhookUrl
-      ? await createDiscordSender({ http: deps.http, webhookUrl: deps.discordWebhookUrl }).send(
+    const discordSent = user.discordWebhook
+      ? await createDiscordSender({ http: deps.http, webhookUrl: user.discordWebhook }).send(
           payload,
         )
       : null;
 
     const telegramSent =
-      deps.telegramBotToken && deps.telegramChatId
+      user.telegramBotToken && user.telegramChatId
         ? await createTelegramSender({
             http: deps.http,
-            botToken: deps.telegramBotToken,
-            chatId: deps.telegramChatId,
+            botToken: user.telegramBotToken,
+            chatId: user.telegramChatId,
           }).send(payload)
         : null;
 

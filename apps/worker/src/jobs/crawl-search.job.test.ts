@@ -123,6 +123,7 @@ describe('crawl-search job processor', () => {
       listingId: listing?.id,
       targetRoi: search.targetRoi,
       minimumScore: search.minimumScore,
+      userId: search.userId,
     });
   });
 

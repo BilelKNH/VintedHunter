@@ -22,6 +22,7 @@ import { authController } from './modules/auth/auth.controller.js';
 import { listingsController } from './modules/listings/listings.controller.js';
 import { searchesController } from './modules/searches/searches.controller.js';
 import { purchasesController } from './modules/purchases/purchases.controller.js';
+import { usersController } from './modules/users/users.controller.js';
 import { createAnalysisController } from './modules/analysis/analysis.controller.js';
 import type { AnalysisQueueProducer } from './modules/analysis/analysis.service.js';
 import { createRedisConnection } from './queue/connection.js';
@@ -65,6 +66,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(searchesController);
   app.register(listingsController);
   app.register(purchasesController);
+  app.register(usersController);
 
   let ownedConnection: Redis | null = null;
   let ownedQueue: Queue<AnalyzeListingJobData> | null = null;

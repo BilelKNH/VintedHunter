@@ -111,6 +111,7 @@ export function createCrawlSearchProcessor(deps: CrawlSearchJobDeps) {
             listingId: result.listing.id,
             targetRoi: search.targetRoi,
             minimumScore: search.minimumScore,
+            userId: search.userId,
           });
         }
       }

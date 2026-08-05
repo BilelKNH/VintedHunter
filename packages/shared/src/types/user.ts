@@ -7,6 +7,9 @@ export interface PublicUser {
   email: string;
   firstname: string | null;
   role: UserRole;
+  discordWebhook: string | null;
+  telegramBotToken: string | null;
+  telegramChatId: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -3,6 +3,7 @@ export * from './schemas/pagination.js';
 export * from './schemas/id-param.js';
 export * from './schemas/search.js';
 export * from './schemas/purchase.js';
+export * from './schemas/user.js';
 export * from './user-role.js';
 export * from './marketplace.js';
 export * from './types/listing.js';

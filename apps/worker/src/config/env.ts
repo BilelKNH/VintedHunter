@@ -7,11 +7,6 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
-  // Notification channels (§46-49) — optional: send-notification.job.ts skips any channel
-  // whose config is empty rather than failing the job.
-  DISCORD_WEBHOOK: z.string().optional(),
-  TELEGRAM_TOKEN: z.string().optional(),
-  TELEGRAM_CHAT_ID: z.string().optional(),
   // Vision AI (§13/§61/§62) — optional: analyze-listing.job.ts skips vision analysis entirely
   // when unset (same "feature degrades gracefully" pattern as the notification channels above).
   ANTHROPIC_API_KEY: z.string().optional(),

@@ -6,6 +6,9 @@ const fakeUser = {
   email: "jane@example.com",
   firstname: "Jane",
   role: "USER" as const,
+  discordWebhook: null,
+  telegramBotToken: null,
+  telegramChatId: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };

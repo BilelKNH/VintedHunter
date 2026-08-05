@@ -36,18 +36,24 @@ enum NotificationChannel {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password      String
-  firstname     String?
-  role          UserRole       @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  searches      Search[]
-  notifications Notification[]
-  purchases     Purchase[]
-  refreshTokens RefreshToken[]
-  favorites     Favorite[]
+  id               String         @id @default(uuid())
+  email            String         @unique
+  password         String
+  firstname        String?
+  role             UserRole       @default(USER)
+  // Per-user notification channels (replaces the old global DISCORD_WEBHOOK/TELEGRAM_TOKEN/
+  // TELEGRAM_CHAT_ID env vars) — apps/worker's send-notification.job.ts looks these up per
+  // search owner instead of using one shared destination for every user.
+  discordWebhook   String?
+  telegramBotToken String?
+  telegramChatId   String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  searches         Search[]
+  notifications    Notification[]
+  purchases        Purchase[]
+  refreshTokens    RefreshToken[]
+  favorites        Favorite[]
 
   @@map("users")
 }

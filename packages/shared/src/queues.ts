@@ -15,4 +15,9 @@ export interface AnalyzeListingJobData {
   // triggers a notification (see @vinted-hunter/notifications' shouldNotify). Same
   // absent-for-manual-reanalysis / default-fallback behavior as targetRoi above.
   minimumScore?: number;
+  // The triggering search's owner — send-notification.job.ts looks up this user's own
+  // Discord/Telegram settings instead of a global destination. Absent for on-demand
+  // re-analysis not tied to a search, in which case no notification is sent (there's no
+  // "whose settings" to use).
+  userId?: string;
 }
