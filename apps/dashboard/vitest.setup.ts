@@ -17,3 +17,11 @@ class ResizeObserverStub {
   disconnect() {}
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+
+// jsdom doesn't implement the Pointer Events capture API or scrollIntoView either — Radix
+// Select's item-selection handling calls hasPointerCapture during pointerup, and its viewport
+// scrolls the highlighted item into view. No-op stubs are sufficient for tests.
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.scrollIntoView ??= () => {};
