@@ -2,16 +2,18 @@ import { createRateLimiter, type RateLimiter } from '../rate-limiter.js';
 import type { CrawlerConfig, SearchConfiguration } from '../types.js';
 import { buildVintedQuery } from './build-query.js';
 
-// Structurally identical to Playwright's APIResponse (`ok()`, `status()`, `json()`) so a real
-// `BrowserContext.request` satisfies this without an adapter — see apps/worker's playwright
-// session bootstrap, which is what actually constructs the browser/session.
+// Shaped like Playwright's APIResponse (`ok()`, `status()`, `json()`) but implemented by
+// apps/worker's page-fetch-client, which runs the request through a live page's own fetch()
+// rather than a raw `BrowserContext.request` — Vinted's Cloudflare bot-management challenges the
+// latter even with valid session cookies attached, since it lacks in-page request signals
+// (Sec-Fetch-*, Referer). See apps/worker/src/browser/page-fetch-client.ts.
 export interface VintedApiResponse {
   ok(): boolean;
   status(): number;
   json(): Promise<unknown>;
 }
 
-// Matches Playwright's `APIRequestContext.get(url, { params })` signature.
+// Matches the `.get(url, { params })` shape apps/worker's page-fetch-client implements.
 export interface VintedHttpClient {
   get(
     url: string,
