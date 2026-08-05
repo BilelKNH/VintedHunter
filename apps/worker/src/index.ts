@@ -23,6 +23,7 @@ import { createCrawlSearchProcessor } from './jobs/crawl-search.job.js';
 import { createAnalyzeListingProcessor } from './jobs/analyze-listing.job.js';
 import { createSendNotificationProcessor } from './jobs/send-notification.job.js';
 import { createPlaywrightSession } from './browser/playwright-session.js';
+import { createPageFetchClient } from './browser/page-fetch-client.js';
 import { fetchHttpSender } from './notifications/fetch-http-sender.js';
 
 const RECONCILE_INTERVAL_MS = 60_000;
@@ -37,7 +38,10 @@ async function main(): Promise<void> {
   const sendNotificationQueue = createSendNotificationQueue(connection);
 
   const session = await createPlaywrightSession(crawlerConfig.vintedBaseUrl);
-  const vintedClient = createVintedClient({ http: session.context.request, config: crawlerConfig });
+  const vintedClient = createVintedClient({
+    http: createPageFetchClient(session.page),
+    config: crawlerConfig,
+  });
 
   const cache = createCrawlCache(connection, crawlerConfig.cacheDurationMs);
   const crawlListingsRepository = createCrawlListingsRepository(prisma);
