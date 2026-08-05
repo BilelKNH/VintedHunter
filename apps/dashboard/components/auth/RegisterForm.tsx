@@ -1,44 +1,22 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { useAuthStore } from "../../stores/auth-store";
 import * as authService from "../../services/auth.service";
-import { ApiError } from "../../services/api-client";
+import { useAuthSubmit } from "../../hooks/useAuthSubmit";
 
 export function RegisterForm() {
-  const router = useRouter();
-  const setSession = useAuthStore((state) => state.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstname, setFirstname] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { error, isSubmitting, submit } = useAuthSubmit("Account created — welcome to the hunt");
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const session = await authService.register({
-        email,
-        password,
-        firstname: firstname || undefined,
-      });
-      setSession(session);
-      toast.success("Account created — welcome to the hunt");
-      router.push("/dashboard");
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Something went wrong";
-      setError(message);
-    } finally {
-      setIsSubmitting(false);
-    }
+    void submit(() => authService.register({ email, password, firstname: firstname || undefined }));
   }
 
   return (

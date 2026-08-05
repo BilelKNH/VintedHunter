@@ -206,6 +206,63 @@ describe('analyze-listing job processor', () => {
     );
   });
 
+  it('suppresses the notification when the job-provided minimumScore is higher than the score', async () => {
+    const seller = await prisma.seller.create({
+      data: {
+        externalId: `seller-${Math.random()}`,
+        username: 'trusted-seller-2',
+        rating: 5,
+        reviews: 200,
+      },
+    });
+    const listing = await createListing({
+      price: 50,
+      description:
+        'Achetée en boutique en 2023, portée deux fois seulement, aucun défaut, étiquette conservée.',
+      sellerId: seller.id,
+    });
+    await Promise.all([
+      prisma.listing.create({
+        data: {
+          externalId: `comp-${Math.random()}`,
+          source: 'VINTED',
+          title: 'Comparable 3',
+          brand: 'Stone Island',
+          category: 'Jacket',
+          price: 100,
+          currency: 'EUR',
+          url: 'https://vinted.fr/items/4',
+          images: [],
+        },
+      }),
+      prisma.listing.create({
+        data: {
+          externalId: `comp-${Math.random()}`,
+          source: 'VINTED',
+          title: 'Comparable 4',
+          brand: 'Stone Island',
+          category: 'Jacket',
+          price: 110,
+          currency: 'EUR',
+          url: 'https://vinted.fr/items/5',
+          images: [],
+        },
+      }),
+    ]);
+
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+    });
+
+    const result = await processor(fakeJob({ listingId: listing.id, minimumScore: 99 }));
+
+    expect(result.recommendation).toBe('STRONG_BUY');
+    expect(notificationQueue.add).not.toHaveBeenCalled();
+  });
+
   it('does not enqueue a notification for a mediocre analysis', async () => {
     const listing = await createListing({
       price: 90,

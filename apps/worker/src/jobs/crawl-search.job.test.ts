@@ -122,6 +122,8 @@ describe('crawl-search job processor', () => {
     expect(analyzeListingQueue.add).toHaveBeenCalledWith('analyze-listing', {
       listingId: listing?.id,
       targetRoi: search.targetRoi,
+      minimumScore: search.minimumScore,
+      userId: search.userId,
     });
   });
 

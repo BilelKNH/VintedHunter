@@ -8,6 +8,8 @@ import { Label } from "../ui/label";
 import { TagInput } from "../ui/tag-input";
 import { Switch } from "../ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { KNOWN_BRANDS, keywordSuggestionsForBrand } from "../../utils/brand-catalog";
+import { KNOWN_CATEGORIES } from "../../utils/category-catalog";
 
 const FREQUENCY_PRESETS = [
   { label: "Every 15 minutes", value: 15 },
@@ -56,9 +58,38 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
   const [values, setValues] = useState<SearchFormValues>({ ...EMPTY_VALUES, ...initialValues });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Radix's Select won't re-fire onValueChange for picking the same item twice in a row —
+  // remounting via a changing key resets it to the placeholder so the same brand/category can
+  // be quick-added again after being removed.
+  const [brandPickKey, setBrandPickKey] = useState(0);
+  const [categoryPickKey, setCategoryPickKey] = useState(0);
 
   function update<K extends keyof SearchFormValues>(key: K, value: SearchFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleBrandPick(brandName: string) {
+    setBrandPickKey((key) => key + 1);
+    const brand = KNOWN_BRANDS.find((candidate) => candidate.name === brandName);
+    if (!brand) {
+      return;
+    }
+    setValues((prev) => {
+      const brands = prev.brands.includes(brand.name) ? prev.brands : [...prev.brands, brand.name];
+      const suggestions = keywordSuggestionsForBrand(brand).filter(
+        (keyword) => !prev.keywords.includes(keyword),
+      );
+      return { ...prev, brands, keywords: [...prev.keywords, ...suggestions] };
+    });
+  }
+
+  function handleCategoryPick(category: string) {
+    setCategoryPickKey((key) => key + 1);
+    setValues((prev) =>
+      prev.categories.includes(category)
+        ? prev
+        : { ...prev, categories: [...prev.categories, category] },
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -105,15 +136,46 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label>Brands</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Brands</Label>
+            <Select key={brandPickKey} onValueChange={handleBrandPick}>
+              <SelectTrigger className="h-7 w-36 text-xs" aria-label="Quick add brand">
+                <SelectValue placeholder="Quick add…" />
+              </SelectTrigger>
+              <SelectContent>
+                {KNOWN_BRANDS.map((brand) => (
+                  <SelectItem key={brand.name} value={brand.name}>
+                    {brand.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <TagInput
             value={values.brands}
             onChange={(next) => update("brands", next)}
             placeholder="Nike, Stone Island…"
           />
+          <p className="text-xs text-text-tertiary">
+            Quick-adding a brand also adds its common typo/spelling variants to Keywords.
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label>Categories</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Categories</Label>
+            <Select key={categoryPickKey} onValueChange={handleCategoryPick}>
+              <SelectTrigger className="h-7 w-36 text-xs" aria-label="Quick add category">
+                <SelectValue placeholder="Quick add…" />
+              </SelectTrigger>
+              <SelectContent>
+                {KNOWN_CATEGORIES.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <TagInput
             value={values.categories}
             onChange={(next) => update("categories", next)}
@@ -182,7 +244,7 @@ export function SearchForm({ initialValues, onSubmit, submitLabel }: SearchFormP
             onChange={(event) => update("minimumScore", Number(event.target.value))}
           />
           <p className="text-xs text-text-tertiary">
-            Used once opportunity scoring ships in Phase 5.
+            Only listings scoring above this trigger a notification.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">

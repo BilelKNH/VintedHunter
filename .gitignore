@@ -43,3 +43,6 @@ Thumbs.db
 # Misc
 *.tgz
 .vercel
+
+# Claude Code runtime state
+.claude/scheduled_tasks.lock

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import type { HttpSender } from '@vinted-hunter/notifications';
-import type { Analysis, Listing, PrismaClient } from '@vinted-hunter/database';
+import type { Analysis, Listing, PrismaClient, User } from '@vinted-hunter/database';
 import { createTestPrismaClient } from '../test/test-prisma.js';
 import { cleanDatabase } from '../test/db-cleanup.js';
 import { createSendNotificationProcessor } from './send-notification.job.js';
@@ -58,22 +58,39 @@ async function createAnalysis(listingId: string): Promise<Analysis> {
   });
 }
 
+async function createUser(
+  overrides: Partial<{
+    discordWebhook: string | null;
+    telegramBotToken: string | null;
+    telegramChatId: string | null;
+  }> = {},
+): Promise<User> {
+  return prisma.user.create({
+    data: {
+      email: `${Date.now()}-${Math.random()}@example.com`,
+      password: 'hash',
+      discordWebhook: overrides.discordWebhook ?? null,
+      telegramBotToken: overrides.telegramBotToken ?? null,
+      telegramChatId: overrides.telegramChatId ?? null,
+    },
+  });
+}
+
 describe('send-notification job processor', () => {
-  it('sends to both channels when both are configured', async () => {
+  it('sends to both channels when both are configured on the search owner', async () => {
     const listing = await createListing();
     const analysis = await createAnalysis(listing.id);
-    const post = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    const http: HttpSender = { post };
-
-    const processor = createSendNotificationProcessor({
-      prisma,
-      http,
-      discordWebhookUrl: 'https://discord.example/webhook',
+    const user = await createUser({
+      discordWebhook: 'https://discord.example/webhook',
       telegramBotToken: 'TEST_TOKEN',
       telegramChatId: '12345',
     });
+    const post = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const http: HttpSender = { post };
 
-    const result = await processor(fakeJob({ analysisId: analysis.id }));
+    const processor = createSendNotificationProcessor({ prisma, http });
+
+    const result = await processor(fakeJob({ analysisId: analysis.id, userId: user.id }));
 
     expect(result).toEqual({ sent: true, discordSent: true, telegramSent: true });
     expect(post).toHaveBeenCalledTimes(2);
@@ -89,20 +106,15 @@ describe('send-notification job processor', () => {
     );
   });
 
-  it('skips channels that are not configured', async () => {
+  it('skips channels the user has not configured', async () => {
     const listing = await createListing();
     const analysis = await createAnalysis(listing.id);
+    const user = await createUser();
     const post = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 
-    const processor = createSendNotificationProcessor({
-      prisma,
-      http: { post },
-      discordWebhookUrl: null,
-      telegramBotToken: null,
-      telegramChatId: null,
-    });
+    const processor = createSendNotificationProcessor({ prisma, http: { post } });
 
-    const result = await processor(fakeJob({ analysisId: analysis.id }));
+    const result = await processor(fakeJob({ analysisId: analysis.id, userId: user.id }));
 
     expect(result).toEqual({ sent: true, discordSent: null, telegramSent: null });
     expect(post).not.toHaveBeenCalled();
@@ -111,33 +123,49 @@ describe('send-notification job processor', () => {
   it('requires both telegramBotToken and telegramChatId to send via Telegram', async () => {
     const listing = await createListing();
     const analysis = await createAnalysis(listing.id);
+    const user = await createUser({ telegramBotToken: 'TEST_TOKEN', telegramChatId: null });
     const post = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 
-    const processor = createSendNotificationProcessor({
-      prisma,
-      http: { post },
-      discordWebhookUrl: null,
-      telegramBotToken: 'TEST_TOKEN',
-      telegramChatId: null,
-    });
+    const processor = createSendNotificationProcessor({ prisma, http: { post } });
 
-    const result = await processor(fakeJob({ analysisId: analysis.id }));
+    const result = await processor(fakeJob({ analysisId: analysis.id, userId: user.id }));
 
     expect(result.telegramSent).toBeNull();
     expect(post).not.toHaveBeenCalled();
   });
 
   it('does nothing for an analysisId that does not exist', async () => {
+    const user = await createUser({ discordWebhook: 'https://discord.example/webhook' });
     const post = vi.fn();
-    const processor = createSendNotificationProcessor({
-      prisma,
-      http: { post },
-      discordWebhookUrl: 'https://discord.example/webhook',
-      telegramBotToken: null,
-      telegramChatId: null,
-    });
+    const processor = createSendNotificationProcessor({ prisma, http: { post } });
 
-    const result = await processor(fakeJob({ analysisId: 'missing-analysis' }));
+    const result = await processor(fakeJob({ analysisId: 'missing-analysis', userId: user.id }));
+
+    expect(result).toEqual({ sent: false, discordSent: null, telegramSent: null });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the job carries no userId (on-demand re-analysis not tied to a search)', async () => {
+    const listing = await createListing();
+    const analysis = await createAnalysis(listing.id);
+    const post = vi.fn();
+    const processor = createSendNotificationProcessor({ prisma, http: { post } });
+
+    const result = await processor(fakeJob({ analysisId: analysis.id }));
+
+    expect(result).toEqual({ sent: false, discordSent: null, telegramSent: null });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when userId does not match an existing user', async () => {
+    const listing = await createListing();
+    const analysis = await createAnalysis(listing.id);
+    const post = vi.fn();
+    const processor = createSendNotificationProcessor({ prisma, http: { post } });
+
+    const result = await processor(
+      fakeJob({ analysisId: analysis.id, userId: 'missing-user' }),
+    );
 
     expect(result).toEqual({ sent: false, discordSent: null, telegramSent: null });
     expect(post).not.toHaveBeenCalled();

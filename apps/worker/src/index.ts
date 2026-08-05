@@ -69,9 +69,6 @@ async function main(): Promise<void> {
   const sendNotificationProcessor = createSendNotificationProcessor({
     prisma,
     http: fetchHttpSender,
-    discordWebhookUrl: env.DISCORD_WEBHOOK || null,
-    telegramBotToken: env.TELEGRAM_TOKEN || null,
-    telegramChatId: env.TELEGRAM_CHAT_ID || null,
   });
 
   const crawlSearchWorker = new Worker<CrawlSearchJobData>(

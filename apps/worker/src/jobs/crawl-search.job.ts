@@ -110,6 +110,8 @@ export function createCrawlSearchProcessor(deps: CrawlSearchJobDeps) {
           await deps.analyzeListingQueue.add(ANALYZE_LISTING_JOB_NAME, {
             listingId: result.listing.id,
             targetRoi: search.targetRoi,
+            minimumScore: search.minimumScore,
+            userId: search.userId,
           });
         }
       }

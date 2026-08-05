@@ -51,6 +51,24 @@ describe("SearchForm", () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ brands: ["Nike"] }));
   });
 
+  it("quick-adding a brand adds it to Brands and its typo/apostrophe variants to Keywords", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<SearchForm submitLabel="Create" onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Name"), "Arcteryx Hunter");
+    await user.click(screen.getByRole("combobox", { name: "Quick add brand" }));
+    await user.click(await screen.findByRole("option", { name: "Arc'teryx" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brands: ["Arc'teryx"],
+        keywords: expect.arrayContaining(["Arcteryx", "Arc teryx"]),
+      }),
+    );
+  });
+
   it("pre-fills fields from initialValues", () => {
     render(
       <SearchForm

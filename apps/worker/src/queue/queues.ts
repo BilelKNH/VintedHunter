@@ -18,6 +18,10 @@ export interface CrawlSearchJobData {
 // analyze-listing's does — apps/api never needs to know about it.
 export interface SendNotificationJobData {
   analysisId: string;
+  // The listing's own owning search's userId — whose Discord/Telegram settings to notify.
+  // Absent for on-demand re-analysis not tied to a search, in which case no channel is
+  // configured and the job is a no-op.
+  userId?: string;
 }
 
 export function createCrawlSearchQueue(connection: Redis): Queue<CrawlSearchJobData> {

@@ -13,6 +13,7 @@ describe("users.service", () => {
       findById: vi.fn(),
       findByEmail: vi.fn(),
       create: vi.fn(),
+      updateNotificationSettings: vi.fn(),
     };
     service = createUsersService({ usersRepository });
   });
@@ -24,6 +25,9 @@ describe("users.service", () => {
       password: "hash",
       firstname: "Jane",
       role: "USER",
+      discordWebhook: null,
+      telegramBotToken: null,
+      telegramChatId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -36,5 +40,32 @@ describe("users.service", () => {
     vi.mocked(usersRepository.findById).mockResolvedValue(null);
 
     await expect(service.getById("missing")).rejects.toThrow(NotFoundError);
+  });
+
+  describe("updateNotificationSettings", () => {
+    it("passes the update through to the repository and returns the updated user", async () => {
+      const updated: User = {
+        id: "user-1",
+        email: "jane@example.com",
+        password: "hash",
+        firstname: "Jane",
+        role: "USER",
+        discordWebhook: "https://discord.com/api/webhooks/x",
+        telegramBotToken: null,
+        telegramChatId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      vi.mocked(usersRepository.updateNotificationSettings).mockResolvedValue(updated);
+
+      const result = await service.updateNotificationSettings("user-1", {
+        discordWebhook: "https://discord.com/api/webhooks/x",
+      });
+
+      expect(usersRepository.updateNotificationSettings).toHaveBeenCalledWith("user-1", {
+        discordWebhook: "https://discord.com/api/webhooks/x",
+      });
+      expect(result).toEqual(updated);
+    });
   });
 });

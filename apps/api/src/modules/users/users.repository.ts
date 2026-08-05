@@ -6,10 +6,17 @@ export interface CreateUserInput {
   firstname?: string | null;
 }
 
+export interface NotificationSettingsInput {
+  discordWebhook?: string | null;
+  telegramBotToken?: string | null;
+  telegramChatId?: string | null;
+}
+
 export interface UsersRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   create(data: CreateUserInput): Promise<User>;
+  updateNotificationSettings(id: string, data: NotificationSettingsInput): Promise<User>;
 }
 
 export function createUsersRepository(prisma: PrismaClient): UsersRepository {
@@ -17,5 +24,6 @@ export function createUsersRepository(prisma: PrismaClient): UsersRepository {
     findById: (id) => prisma.user.findUnique({ where: { id } }),
     findByEmail: (email) => prisma.user.findUnique({ where: { email } }),
     create: (data) => prisma.user.create({ data }),
+    updateNotificationSettings: (id, data) => prisma.user.update({ where: { id }, data }),
   };
 }

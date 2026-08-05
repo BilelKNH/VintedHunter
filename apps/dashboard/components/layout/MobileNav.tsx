@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Search, ShoppingBag } from "lucide-react";
+import { LayoutGrid, Search, Settings, ShoppingBag, Wallet } from "lucide-react";
 import { Sheet, SheetContent } from "../ui/sheet";
 import { cn } from "../../utils/cn";
 
@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/listings", label: "Listings", icon: ShoppingBag },
   { href: "/searches", label: "Searches", icon: Search },
+  { href: "/purchases", label: "Purchases", icon: Wallet },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export interface MobileNavProps {

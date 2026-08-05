@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import type { User } from "@vinted-hunter/database";
 import {
   RATE_LIMIT_AUTH_MAX,
   RATE_LIMIT_AUTH_WINDOW,
@@ -13,16 +12,12 @@ import { UnauthorizedError } from "../../utils/errors.js";
 import { success } from "../../utils/response.js";
 import { generateRefreshToken, hashRefreshToken } from "../../utils/jwt.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
+import { toPublicUser } from "../../utils/public-user.js";
 import { createUsersRepository } from "../users/users.repository.js";
 import { createUsersService } from "../users/users.service.js";
 import { createAuthService } from "./auth.service.js";
 import { loginSchema, registerSchema } from "./auth.schemas.js";
 import { createRefreshTokenRepository } from "./refresh-token.repository.js";
-
-function toPublicUser(user: User): Omit<User, "password"> {
-  const { password: _password, ...rest } = user;
-  return rest;
-}
 
 export async function authController(fastify: FastifyInstance): Promise<void> {
   const app = fastify.withTypeProvider<ZodTypeProvider>();

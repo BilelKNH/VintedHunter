@@ -12,6 +12,9 @@ function fakeUser(overrides: Partial<User> = {}): User {
     password: "hashed-password",
     firstname: "Jane",
     role: "USER",
+    discordWebhook: null,
+    telegramBotToken: null,
+    telegramChatId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -33,6 +36,7 @@ describe("auth.service", () => {
       findById: vi.fn(),
       findByEmail: vi.fn(),
       create: vi.fn(),
+      updateNotificationSettings: vi.fn(),
     };
     refreshTokenRepository = {
       create: vi.fn(),
