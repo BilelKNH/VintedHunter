@@ -3,6 +3,7 @@ import type { Listing } from "@vinted-hunter/shared";
 import { Badge } from "../ui/badge";
 import { FavoriteButton } from "./FavoriteButton";
 import { AnalysisPendingBadge } from "./AnalysisPendingBadge";
+import { AnalysisScoreBadge } from "./AnalysisScoreBadge";
 import { formatPrice, formatRelativeDate } from "../../utils/format";
 
 export function ListingCard({ listing }: { listing: Listing }) {
@@ -47,7 +48,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
             {formatRelativeDate(listing.publishedAt)}
           </span>
         </div>
-        <AnalysisPendingBadge />
+        {listing.analysis ? (
+          <AnalysisScoreBadge analysis={listing.analysis} />
+        ) : (
+          <AnalysisPendingBadge />
+        )}
       </div>
     </Link>
   );

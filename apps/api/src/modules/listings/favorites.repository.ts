@@ -1,10 +1,14 @@
-import type { Favorite, Listing, PrismaClient } from "@vinted-hunter/database";
+import type { Favorite, PrismaClient } from "@vinted-hunter/database";
+import type { ListingWithAnalysis } from "./listings.repository.js";
 
 export interface FavoritesRepository {
   find(userId: string, listingId: string): Promise<Favorite | null>;
   create(userId: string, listingId: string): Promise<Favorite>;
   delete(userId: string, listingId: string): Promise<void>;
-  findAllByUserId(userId: string, params: { skip: number; take: number }): Promise<Listing[]>;
+  findAllByUserId(
+    userId: string,
+    params: { skip: number; take: number },
+  ): Promise<ListingWithAnalysis[]>;
   countByUserId(userId: string): Promise<number>;
 }
 
@@ -22,7 +26,7 @@ export function createFavoritesRepository(prisma: PrismaClient): FavoritesReposi
         orderBy: { createdAt: "desc" },
         skip,
         take,
-        include: { listing: true },
+        include: { listing: { include: { analysis: true } } },
       });
       return favorites.map((favorite) => favorite.listing);
     },
