@@ -49,20 +49,26 @@ export interface AnalysisInput {
   // Percentage margin maxBuyPrice must clear against market.estimatedValue — mirrors the
   // triggering Search's targetRoi (see packages/database's Search model).
   targetRoi: number;
+  // This listing's own past prices (PriceHistory), oldest -> newest — feeds trend-score.ts.
+  // Empty for a listing whose price has never changed, which scores neutral.
+  priceHistory: number[];
 }
 
 export type Recommendation = 'IGNORE' | 'WATCH' | 'GOOD_OPPORTUNITY' | 'STRONG_BUY';
 
-// Mirrors packages/database's Analysis model (score/priceScore/.../authenticityScore are Int
-// columns, estimatedValue/estimatedProfit/roi are Float) — see the plan's weight-redistribution
-// note for why there are only 5 sub-scores instead of SPECIFICATION.md §15.2's 8 criteria.
+// Mirrors packages/database's Analysis model (score/priceScore/.../seasonScore are Int columns,
+// estimatedValue/estimatedProfit/roi are Float). Deal Score v2: 7 dimensions — brandScore and
+// conditionScore were dropped (see compute-score.ts's WEIGHTS comment), "Demand" from the
+// original architecture note was folded into Liquidity rather than faked from the same signal.
 export interface AnalysisResult {
   score: number;
   priceScore: number;
-  brandScore: number;
-  conditionScore: number;
+  profitScore: number;
   liquidityScore: number;
   authenticityScore: number;
+  competitionScore: number;
+  trendScore: number;
+  seasonScore: number;
   estimatedValue: number;
   estimatedValueLow: number;
   estimatedValueHigh: number;

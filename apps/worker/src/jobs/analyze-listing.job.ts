@@ -9,6 +9,7 @@ import type { AnalyzeListingJobData } from '@vinted-hunter/shared';
 import type { ComparableListingsRepository } from '../repositories/comparable-listings.repository.js';
 import type { AnalysisRepository } from '../repositories/analysis.repository.js';
 import type { EmbeddingsRepository } from '../repositories/embeddings.repository.js';
+import { findPriceHistoryForListing } from '../repositories/price-history.repository.js';
 import type { SendNotificationJobData } from '../queue/queues.js';
 
 const MAX_COMPARABLES = 20;
@@ -75,7 +76,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       }
     }
 
-    const [internalComparables, manualComparables] = await Promise.all([
+    const [internalComparables, manualComparables, priceHistory] = await Promise.all([
       deps.comparableListingsRepository.findComparables({
         excludeListingId: listing.id,
         brand: listing.brand,
@@ -87,6 +88,8 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       // weighted higher than internal comparables in estimateMarketPrice, see
       // packages/pricing-engine/src/factors/source-weight.ts.
       deps.comparableListingsRepository.findManualComparables(listing.id),
+      // Phase 3 (Deal Score v2): this listing's own past prices, feeds trend-score.ts.
+      findPriceHistoryForListing(deps.prisma, listing.id),
     ]);
     const comparables = [...internalComparables, ...manualComparables];
 
@@ -143,6 +146,7 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       },
       vision,
       targetRoi,
+      priceHistory,
     });
 
     const analysis = await deps.analysisRepository.upsertForListing(listing.id, analysisResult);

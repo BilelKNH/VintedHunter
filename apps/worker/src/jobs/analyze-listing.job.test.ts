@@ -113,6 +113,22 @@ describe('analyze-listing job processor', () => {
     expect(stored?.score).toBe(result.score);
   });
 
+  it("folds this listing's own recorded price cut into a higher persisted trendScore", async () => {
+    const listing = await createListing({ price: 40 });
+    await prisma.priceHistory.create({ data: { listingId: listing.id, price: 60 } });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+    });
+
+    await processor(fakeJob({ listingId: listing.id }));
+
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    expect(stored?.trendScore).toBeGreaterThan(50);
+  });
+
   it('folds a manually-recorded comparable into the market estimate and persists the confidence interval', async () => {
     const listing = await createListing({ price: 50 });
     const user = await prisma.user.create({
@@ -239,7 +255,7 @@ describe('analyze-listing job processor', () => {
 
     const result = await processor(fakeJob({ listingId: listing.id }));
 
-    expect(result.recommendation).toBe('STRONG_BUY');
+    expect(['GOOD_OPPORTUNITY', 'STRONG_BUY']).toContain(result.recommendation);
     expect(notificationQueue.add).toHaveBeenCalledWith(
       'send-notification',
       expect.objectContaining({ analysisId: expect.any(String) }),
@@ -299,7 +315,7 @@ describe('analyze-listing job processor', () => {
 
     const result = await processor(fakeJob({ listingId: listing.id, minimumScore: 99 }));
 
-    expect(result.recommendation).toBe('STRONG_BUY');
+    expect(['GOOD_OPPORTUNITY', 'STRONG_BUY']).toContain(result.recommendation);
     expect(notificationQueue.add).not.toHaveBeenCalled();
   });
 

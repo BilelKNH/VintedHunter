@@ -4,37 +4,46 @@ import { detectSellerKeywords, type SellerKeywordSignal } from '../seller-keywor
 import { detectTitleErrors, type ErrorDetectionResult } from '../error-detection.js';
 import type { AnalysisInput, AnalysisResult, Recommendation } from '../types.js';
 import { computePriceScore } from './price-score.js';
-import { computeBrandScore } from './brand-score.js';
-import { computeConditionScore } from './condition-score.js';
 import { computeLiquidityScore } from './liquidity-score.js';
+import { computeProfitScore } from './profit-score.js';
+import { computeCompetitionScore } from './competition-score.js';
+import { computeTrendScore } from './trend-score.js';
+import { computeSeasonScore } from './season-score.js';
 import {
   computeAuthenticityScore,
   isCounterfeitFlagged,
   isSuspiciouslyCheap,
 } from './authenticity-score.js';
 
-// §15.2 weights adapted to the 5 sub-score columns the Analysis model actually has — see the
-// plan's "scoring weights" decision: Demande folded into Liquidity (20+10=30%), Vendeur folded
-// into Authenticity (5+5=10%), Photos (5%, needs vision/Phase 6) redistributed into Price
-// (30+5=35%).
+// Deal Score v2 (7 dimensions) — replaces the original 5 (price/brand/condition/liquidity/
+// authenticity). brandScore/conditionScore are dropped: both were computed and persisted but
+// never surfaced anywhere (grepped the whole repo — zero UI consumers), and both are already
+// represented indirectly (brand desirability feeds liquidityScore via computeBrandScore;
+// condition already adjusts market.estimatedValue upstream in packages/pricing-engine's
+// conditionFactor, which priceScore compares against). "Demand" from the original architecture
+// note is deliberately not a separate dimension from Liquidity — both would compute from the
+// identical comparableCount signal with no sold-listings data to tell them apart.
 const WEIGHTS = {
-  price: 0.35,
-  brand: 0.15,
-  condition: 0.1,
-  liquidity: 0.3,
-  authenticity: 0.1,
+  price: 0.25,
+  profit: 0.2,
+  liquidity: 0.2,
+  authenticity: 0.15, // "Risk" in product terms — same computation, field name kept to avoid churn
+  competition: 0.1,
+  trend: 0.05,
+  season: 0.05,
 };
 
 // A weighted average alone isn't enough to keep a likely-fake listing out of the notify path:
-// priceScore (35% weight) rewards the exact same steep discount that trips
-// authenticityScore's suspiciously-cheap penalty (only 10% weight, capped at 40 raw points —
-// a net swing of just -4 on the 0-100 scale). Hard-cap below GOOD_OPPORTUNITY/STRONG_BUY
-// instead so a suspiciously-cheap listing always lands at WATCH-or-lower for manual review.
+// priceScore and profitScore (25%+20% weight, and both move together — a steep discount inflates
+// both) reward the exact same discount that trips authenticityScore's suspiciously-cheap penalty
+// (only 15% weight, capped at 40 raw points — a small net swing on the 0-100 scale). Hard-cap
+// below GOOD_OPPORTUNITY/STRONG_BUY instead so a suspiciously-cheap listing always lands at
+// WATCH-or-lower for manual review.
 const SUSPICIOUSLY_CHEAP_SCORE_CAP = 65;
 
 // Phase 6 (§14/§62): a logo/brand mismatch or an explicit counterfeit-risk flag from Claude
 // Vision is a stronger fake signal than price alone (same net-swing problem as above —
-// authenticityScore's vision penalty is capped at -30/-20 within only a 10%-weighted
+// authenticityScore's vision penalty is capped at -30/-20 within only a 15%-weighted
 // sub-score), so it gets a lower, separate cap. Both caps can apply; compute-score takes the
 // minimum.
 const COUNTERFEIT_FLAGGED_SCORE_CAP = 50;
@@ -139,9 +148,13 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
   const sellerKeywords = detectSellerKeywords(listing.title, listing.description);
   const errorDetection = detectTitleErrors(listing.title, listing.brand);
 
+  // Computed before the weighted sum below — profitScore needs roi.
+  const estimatedProfit = market.estimatedValue - listing.price;
+  const roi = listing.price > 0 ? (estimatedProfit / listing.price) * 100 : 0;
+  const maxBuyPrice = computeMaxBuyPrice(market.estimatedValue, targetRoi);
+
   const priceScore = computePriceScore(listing.price, market.estimatedValue);
-  const brandScore = computeBrandScore(listing.brand);
-  const conditionScore = computeConditionScore(listing.condition);
+  const profitScore = computeProfitScore(roi);
   const liquidityScore = computeLiquidityScore(listing.brand, market.comparableCount);
   const authenticityScore = computeAuthenticityScore({
     price: listing.price,
@@ -150,13 +163,18 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
     descriptionIsLowQuality: descriptionQuality.isLowQuality,
     vision: input.vision,
   });
+  const competitionScore = computeCompetitionScore(market.comparableCount);
+  const trendScore = computeTrendScore(input.priceHistory, listing.price);
+  const seasonScore = computeSeasonScore(listing.category);
 
   const rawScore = Math.round(
     priceScore * WEIGHTS.price +
-      brandScore * WEIGHTS.brand +
-      conditionScore * WEIGHTS.condition +
+      profitScore * WEIGHTS.profit +
       liquidityScore * WEIGHTS.liquidity +
-      authenticityScore * WEIGHTS.authenticity,
+      authenticityScore * WEIGHTS.authenticity +
+      competitionScore * WEIGHTS.competition +
+      trendScore * WEIGHTS.trend +
+      seasonScore * WEIGHTS.season,
   );
 
   const suspiciouslyCheap = isSuspiciouslyCheap(listing.price, market.estimatedValue);
@@ -169,17 +187,15 @@ export function computeAnalysis(input: AnalysisInput): AnalysisResult {
     score = Math.min(score, COUNTERFEIT_FLAGGED_SCORE_CAP);
   }
 
-  const estimatedProfit = market.estimatedValue - listing.price;
-  const roi = listing.price > 0 ? (estimatedProfit / listing.price) * 100 : 0;
-  const maxBuyPrice = computeMaxBuyPrice(market.estimatedValue, targetRoi);
-
   return {
     score,
     priceScore,
-    brandScore,
-    conditionScore,
+    profitScore,
     liquidityScore,
     authenticityScore,
+    competitionScore,
+    trendScore,
+    seasonScore,
     estimatedValue: market.estimatedValue,
     estimatedValueLow: market.estimatedValueLow,
     estimatedValueHigh: market.estimatedValueHigh,

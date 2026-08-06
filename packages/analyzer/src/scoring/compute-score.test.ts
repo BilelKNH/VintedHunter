@@ -6,6 +6,7 @@ function baseInput(
   overrides: Partial<AnalysisInput['listing']> = {},
   market: Partial<AnalysisInput['market']> = {},
   vision: AnalysisInput['vision'] = undefined,
+  priceHistory: number[] = [],
 ): AnalysisInput {
   return {
     listing: {
@@ -13,7 +14,10 @@ function baseInput(
       description:
         'Achetée en boutique en 2023, portée deux fois, aucun défaut, taille M, étiquette conservée.',
       brand: 'Stone Island',
-      category: 'Jacket',
+      // Deliberately not a category season-score.ts recognizes — keeps these general tests
+      // deterministic regardless of what today's real date is. Seasonality itself is covered by
+      // season-score.test.ts with fixed dates.
+      category: 'Hoodie',
       size: 'M',
       condition: 'Neuf avec étiquette',
       price: 20,
@@ -31,6 +35,7 @@ function baseInput(
     },
     vision,
     targetRoi: 30,
+    priceHistory,
   };
 }
 
@@ -46,11 +51,16 @@ function visionSignals(overrides: Partial<VisionSignals> = {}): VisionSignals {
 }
 
 describe('computeAnalysis', () => {
-  it('recommends STRONG_BUY for a clearly great deal', () => {
+  it('recommends at least GOOD_OPPORTUNITY for a clearly great deal', () => {
+    // Deal Score v2 weighs in competition/trend/season (§ compute-score.ts's WEIGHTS comment),
+    // all three of which sit at a neutral baseline for a freshly-discovered listing with no
+    // price history yet — so even a great deal on price/profit/liquidity/authenticity alone no
+    // longer automatically reaches STRONG_BUY (>=90). That's intentional: STRONG_BUY is now
+    // reserved for listings where every dimension lines up, not just price.
     const result = computeAnalysis(baseInput());
 
-    expect(result.score).toBeGreaterThanOrEqual(90);
-    expect(result.recommendation).toBe('STRONG_BUY');
+    expect(result.score).toBeGreaterThanOrEqual(75);
+    expect(['GOOD_OPPORTUNITY', 'STRONG_BUY']).toContain(result.recommendation);
   });
 
   it('passes estimatedValueLow/High and confidence through from market unchanged', () => {
@@ -77,10 +87,12 @@ describe('computeAnalysis', () => {
 
   it('does not cap the score for a merely notably-cheap (not suspicious) price', () => {
     // Ratio 0.2 is in the "notably cheap" band (0.15-0.3), below the "suspiciously cheap"
-    // threshold (0.15) — a great deal, not a red flag.
+    // threshold (0.15) — a great deal, not a red flag. Confirm it's not pulled down to
+    // SUSPICIOUSLY_CHEAP_SCORE_CAP (65) the way the suspicious case is.
     const result = computeAnalysis(baseInput({ price: 20 }, { estimatedValue: 100 }));
 
-    expect(result.recommendation).toBe('STRONG_BUY');
+    expect(result.score).toBeGreaterThan(65);
+    expect(['GOOD_OPPORTUNITY', 'STRONG_BUY']).toContain(result.recommendation);
   });
 
   it('recommends IGNORE for a clearly bad deal', () => {
@@ -165,19 +177,28 @@ describe('computeAnalysis', () => {
     expect(result.explanation).toContain('Vendeur pressé — marge de négociation possible');
   });
 
-  it('returns all five sub-scores within 0-100', () => {
+  it('returns all seven sub-scores within 0-100', () => {
     const result = computeAnalysis(baseInput());
 
     for (const value of [
       result.priceScore,
-      result.brandScore,
-      result.conditionScore,
+      result.profitScore,
       result.liquidityScore,
       result.authenticityScore,
+      result.competitionScore,
+      result.trendScore,
+      result.seasonScore,
     ]) {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(100);
     }
+  });
+
+  it('folds a price cut (this listing\'s own PriceHistory) into a higher trendScore', () => {
+    const withoutHistory = computeAnalysis(baseInput({ price: 20 }, {}, undefined, []));
+    const withPriceCut = computeAnalysis(baseInput({ price: 20 }, {}, undefined, [30]));
+
+    expect(withPriceCut.trendScore).toBeGreaterThan(withoutHistory.trendScore);
   });
 
   it('defaults vision fields to null/[] when no vision analysis was run (regression guard)', () => {
@@ -238,7 +259,7 @@ describe('computeAnalysis', () => {
     );
     const withoutVision = computeAnalysis(baseInput());
 
-    expect(withVision.recommendation).toBe('STRONG_BUY');
     expect(withVision.score).toBe(withoutVision.score);
+    expect(withVision.recommendation).toBe(withoutVision.recommendation);
   });
 });

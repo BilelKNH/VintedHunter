@@ -11,10 +11,15 @@ interface WeightedComparable {
   weight: number;
 }
 
-function weighComparables(comparables: ComparableListing[]): WeightedComparable[] {
+// `now` is captured once by the caller and threaded through — every comparable's recency weight
+// must be computed against the same reference instant. Each call independently defaulting to
+// `new Date()` (computeRecencyWeight's own default) would let comparables in the same batch drift
+// against slightly different "now"s as iteration takes non-zero time, which also made
+// averageComparablePrice non-deterministic down to floating-point noise for same-instant inputs.
+function weighComparables(comparables: ComparableListing[], now: Date): WeightedComparable[] {
   return comparables.map((comparable) => ({
     price: comparable.price,
-    weight: weightForSource(comparable.source) * computeRecencyWeight(comparable.observedAt),
+    weight: weightForSource(comparable.source) * computeRecencyWeight(comparable.observedAt, now),
   }));
 }
 
@@ -66,7 +71,7 @@ export function estimateMarketPrice(
     };
   }
 
-  const weighted = weighComparables(comparables);
+  const weighted = weighComparables(comparables, new Date());
   const { basePrice, totalWeight } = weightedAverage(weighted);
   const stdDev = weightedStdDev(weighted, basePrice, totalWeight);
 

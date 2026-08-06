@@ -179,10 +179,16 @@ model Analysis {
   listingId         String   @unique
   score             Int
   priceScore        Int
-  brandScore        Int
-  conditionScore    Int
+  // Deal Score v2 (7 dimensions) — brandScore/conditionScore dropped, never surfaced anywhere
+  // (grepped the repo, zero UI consumers) and already represented indirectly: brand feeds
+  // liquidityScore, condition already adjusts estimatedValue upstream in pricing-engine's
+  // conditionFactor. See packages/analyzer's compute-score.ts WEIGHTS comment.
   liquidityScore    Int
   authenticityScore Int
+  profitScore        Int
+  competitionScore   Int
+  trendScore         Int
+  seasonScore        Int
   estimatedValue    Float
   // Weighted-stddev interval around estimatedValue and a 0-100 confidence score — Phase 2's
   // market aggregator (packages/pricing-engine's factors/confidence.ts). Always computed
