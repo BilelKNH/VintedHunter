@@ -12,6 +12,7 @@ import {
   type ListingFiltersValue,
 } from "@/components/listings/ListingFilters";
 import { useListings } from "@/hooks/useListings";
+import { useSearches } from "@/hooks/useSearches";
 
 const PAGE_SIZE = 20;
 
@@ -19,6 +20,19 @@ export default function ListingsPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<ListingFiltersValue>(DEFAULT_LISTING_FILTERS);
   const { data, isLoading, isError, refetch } = useListings(page, PAGE_SIZE);
+  const { data: searches } = useSearches();
+
+  // Union of brands configured across the user's searches and brands actually present on this
+  // catalog page: searches-only left the dropdown empty for a user with no searches (or searches
+  // with no brand filter); page-only made it feel "stuck" on whichever single brand a crawl
+  // happened to fill the page with. Neither source alone is reliable.
+  const brands = useMemo(() => {
+    const fromSearches = (searches ?? []).flatMap((search) => search.brands);
+    const fromListings = (data?.items ?? [])
+      .map((listing) => listing.brand)
+      .filter((brand): brand is string => Boolean(brand));
+    return Array.from(new Set([...fromSearches, ...fromListings])).sort();
+  }, [searches, data]);
 
   const filteredItems = useMemo(() => {
     if (!data) return [];
@@ -44,7 +58,12 @@ export default function ListingsPage() {
         <ErrorState onRetry={() => void refetch()} />
       ) : data && data.items.length > 0 ? (
         <>
-          <ListingFilters listings={data.items} value={filters} onChange={setFilters} />
+          <ListingFilters
+            listings={data.items}
+            brands={brands}
+            value={filters}
+            onChange={setFilters}
+          />
           {filteredItems.length > 0 ? (
             <ListingGrid listings={filteredItems} />
           ) : (
