@@ -21,7 +21,14 @@ function baseInput(
       seller: { rating: 5, reviews: 200, accountAge: 400, totalListings: 30, riskScore: null },
       ...overrides,
     },
-    market: { estimatedValue: 100, comparableCount: 5, ...market },
+    market: {
+      estimatedValue: 100,
+      estimatedValueLow: 90,
+      estimatedValueHigh: 110,
+      confidence: 70,
+      comparableCount: 5,
+      ...market,
+    },
     vision,
     targetRoi: 30,
   };
@@ -44,6 +51,16 @@ describe('computeAnalysis', () => {
 
     expect(result.score).toBeGreaterThanOrEqual(90);
     expect(result.recommendation).toBe('STRONG_BUY');
+  });
+
+  it('passes estimatedValueLow/High and confidence through from market unchanged', () => {
+    const result = computeAnalysis(
+      baseInput({}, { estimatedValueLow: 88, estimatedValueHigh: 112, confidence: 82 }),
+    );
+
+    expect(result.estimatedValueLow).toBe(88);
+    expect(result.estimatedValueHigh).toBe(112);
+    expect(result.confidence).toBe(82);
   });
 
   it('caps the score below GOOD_OPPORTUNITY/STRONG_BUY for a suspiciously-cheap price, even with a hot brand, mint condition, and trusted seller', () => {

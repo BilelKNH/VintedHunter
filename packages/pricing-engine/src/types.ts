@@ -1,5 +1,13 @@
+export type ComparableSource = 'internal' | 'manual';
+
 export interface ComparableListing {
   price: number;
+  // 'internal' — another Vinted listing found similar (by embedding or brand/category, see
+  // apps/worker's comparable-listings.repository.ts). 'manual' — a price a user recorded for
+  // this exact item on another platform (ManualComparable). See factors/source-weight.ts.
+  source: ComparableSource;
+  // ISO date the comparable was observed — feeds factors/recency-factor.ts.
+  observedAt: string;
 }
 
 export interface MarketPriceContext {
@@ -14,6 +22,12 @@ export interface MarketPriceContext {
 
 export interface MarketPriceEstimate {
   estimatedValue: number;
+  // Weighted-stddev interval around estimatedValue — collapses to a point (low = high =
+  // estimatedValue) with zero or one comparable, since there's no spread to measure.
+  estimatedValueLow: number;
+  estimatedValueHigh: number;
+  // 0-100, see factors/confidence.ts.
+  confidence: number;
   comparableCount: number;
   averageComparablePrice: number | null;
   brandFactor: number;

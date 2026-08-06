@@ -75,13 +75,20 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       }
     }
 
-    const comparables = await deps.comparableListingsRepository.findComparables({
-      excludeListingId: listing.id,
-      brand: listing.brand,
-      category: listing.category,
-      limit: MAX_COMPARABLES,
-      embedding,
-    });
+    const [internalComparables, manualComparables] = await Promise.all([
+      deps.comparableListingsRepository.findComparables({
+        excludeListingId: listing.id,
+        brand: listing.brand,
+        category: listing.category,
+        limit: MAX_COMPARABLES,
+        embedding,
+      }),
+      // Phase 2: prices a user recorded for this exact listing elsewhere (ManualComparable) —
+      // weighted higher than internal comparables in estimateMarketPrice, see
+      // packages/pricing-engine/src/factors/source-weight.ts.
+      deps.comparableListingsRepository.findManualComparables(listing.id),
+    ]);
+    const comparables = [...internalComparables, ...manualComparables];
 
     const priceEstimate = estimateMarketPrice(comparables, {
       brand: listing.brand,
@@ -129,6 +136,9 @@ export function createAnalyzeListingProcessor(deps: AnalyzeListingJobDeps) {
       listing: listingForAnalysis,
       market: {
         estimatedValue: priceEstimate.estimatedValue,
+        estimatedValueLow: priceEstimate.estimatedValueLow,
+        estimatedValueHigh: priceEstimate.estimatedValueHigh,
+        confidence: priceEstimate.confidence,
         comparableCount: priceEstimate.comparableCount,
       },
       vision,

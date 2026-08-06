@@ -28,6 +28,9 @@ function toListingResponse(listing: ListingWithAnalysis): ListingResponse {
           score: listing.analysis.score,
           recommendation: recommendationForScore(listing.analysis.score),
           maxBuyPrice: listing.analysis.maxBuyPrice,
+          estimatedValueLow: listing.analysis.estimatedValueLow,
+          estimatedValueHigh: listing.analysis.estimatedValueHigh,
+          confidence: listing.analysis.confidence,
         }
       : null,
   };

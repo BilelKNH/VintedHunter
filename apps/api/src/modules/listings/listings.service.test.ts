@@ -78,6 +78,9 @@ describe("listings.service", () => {
           liquidityScore: 75,
           authenticityScore: 90,
           estimatedValue: 100,
+          estimatedValueLow: 90,
+          estimatedValueHigh: 110,
+          confidence: 75,
           estimatedProfit: 20,
           roi: 0.2,
           maxBuyPrice: 76.92,
@@ -100,6 +103,9 @@ describe("listings.service", () => {
         score: 82,
         recommendation: "GOOD_OPPORTUNITY",
         maxBuyPrice: 76.92,
+        estimatedValueLow: 90,
+        estimatedValueHigh: 110,
+        confidence: 75,
       });
     });
   });
