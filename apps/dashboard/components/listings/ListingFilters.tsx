@@ -21,7 +21,6 @@ export const DEFAULT_LISTING_FILTERS: ListingFiltersValue = {
 
 export interface ListingFiltersProps {
   listings: Listing[];
-  brands: string[];
   value: ListingFiltersValue;
   onChange(value: ListingFiltersValue): void;
 }
@@ -31,7 +30,11 @@ function distinctValues(listings: Listing[], key: "brand" | "category"): string[
   return Array.from(new Set(values)).sort();
 }
 
-export function ListingFilters({ listings, brands, value, onChange }: ListingFiltersProps) {
+export function ListingFilters({ listings, value, onChange }: ListingFiltersProps) {
+  // Both dropdowns derive from the currently displayed catalog page, not from configured
+  // Search brand filters — a user with no searches (or searches without brands set) would
+  // otherwise see an empty Brand dropdown despite the catalog being full of brands.
+  const brands = useMemo(() => distinctValues(listings, "brand"), [listings]);
   const categories = useMemo(() => distinctValues(listings, "category"), [listings]);
 
   function update(patch: Partial<ListingFiltersValue>) {

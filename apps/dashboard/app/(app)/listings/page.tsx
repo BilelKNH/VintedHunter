@@ -12,7 +12,6 @@ import {
   type ListingFiltersValue,
 } from "@/components/listings/ListingFilters";
 import { useListings } from "@/hooks/useListings";
-import { useSearches } from "@/hooks/useSearches";
 
 const PAGE_SIZE = 20;
 
@@ -20,12 +19,6 @@ export default function ListingsPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<ListingFiltersValue>(DEFAULT_LISTING_FILTERS);
   const { data, isLoading, isError, refetch } = useListings(page, PAGE_SIZE);
-  const { data: searches } = useSearches();
-
-  const brands = useMemo(() => {
-    const values = (searches ?? []).flatMap((search) => search.brands);
-    return Array.from(new Set(values)).sort();
-  }, [searches]);
 
   const filteredItems = useMemo(() => {
     if (!data) return [];
@@ -51,12 +44,7 @@ export default function ListingsPage() {
         <ErrorState onRetry={() => void refetch()} />
       ) : data && data.items.length > 0 ? (
         <>
-          <ListingFilters
-            listings={data.items}
-            brands={brands}
-            value={filters}
-            onChange={setFilters}
-          />
+          <ListingFilters listings={data.items} value={filters} onChange={setFilters} />
           {filteredItems.length > 0 ? (
             <ListingGrid listings={filteredItems} />
           ) : (
