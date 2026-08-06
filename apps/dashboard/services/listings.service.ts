@@ -1,8 +1,14 @@
 import type { Listing } from "@vinted-hunter/shared";
 import { apiFetch, apiFetchPaginated, type PaginatedResult } from "./api-client";
 
-export function listListings(page: number, limit: number): Promise<PaginatedResult<Listing>> {
-  return apiFetchPaginated<Listing>(`/listings?page=${page}&limit=${limit}`);
+export type ListingsSortBy = "newest" | "score" | "profit";
+
+export function listListings(
+  page: number,
+  limit: number,
+  sortBy: ListingsSortBy = "newest",
+): Promise<PaginatedResult<Listing>> {
+  return apiFetchPaginated<Listing>(`/listings?page=${page}&limit=${limit}&sortBy=${sortBy}`);
 }
 
 export function listFavoriteListings(

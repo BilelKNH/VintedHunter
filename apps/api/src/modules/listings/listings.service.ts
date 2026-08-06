@@ -1,8 +1,10 @@
 import { recommendationForScore } from "@vinted-hunter/analyzer";
-import type { Listing as ListingResponse } from "@vinted-hunter/shared";
+import type { Listing as ListingResponse, ListingsQuery } from "@vinted-hunter/shared";
 import { NotFoundError } from "../../utils/errors.js";
 import type { FavoritesRepository } from "./favorites.repository.js";
 import type { ListingsRepository, ListingWithAnalysis } from "./listings.repository.js";
+
+type SortBy = ListingsQuery["sortBy"];
 
 export interface ListingsServiceDeps {
   listingsRepository: ListingsRepository;
@@ -38,11 +40,11 @@ function toListingResponse(listing: ListingWithAnalysis): ListingResponse {
 
 export function createListingsService({ listingsRepository, favoritesRepository }: ListingsServiceDeps) {
   return {
-    async list(page: number, limit: number): Promise<ListingsPage> {
+    async list(page: number, limit: number, sortBy: SortBy = "newest"): Promise<ListingsPage> {
       const skip = (page - 1) * limit;
       const [items, total] = await Promise.all([
-        listingsRepository.findMany({ skip, take: limit }),
-        listingsRepository.count(),
+        listingsRepository.findMany({ skip, take: limit, sortBy }),
+        listingsRepository.count(sortBy),
       ]);
       return { items: items.map(toListingResponse), total, page, limit };
     },

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildTestApp, type TestApp } from "../../test/build-test-app.js";
 import { cleanDatabase } from "../../test/db-cleanup.js";
-import { createTestListing } from "../../test/factories.js";
+import { createTestAnalysis, createTestListing } from "../../test/factories.js";
 
 let testApp: TestApp;
 
@@ -43,6 +43,35 @@ describe("GET /listings", () => {
     const response = await testApp.app.inject({ method: "GET", url: "/listings" });
 
     expect(response.statusCode).toBe(200);
+  });
+
+  it("sortBy=score ranks analyzed listings by score, excluding unanalyzed ones", async () => {
+    const low = await createTestListing(testApp.prisma, { title: "Low score" });
+    const high = await createTestListing(testApp.prisma, { title: "High score" });
+    await createTestListing(testApp.prisma, { title: "Never analyzed" });
+    await createTestAnalysis(testApp.prisma, low.id, { score: 40 });
+    await createTestAnalysis(testApp.prisma, high.id, { score: 90 });
+
+    const response = await testApp.app.inject({ method: "GET", url: "/listings?sortBy=score" });
+
+    const body = response.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].id).toBe(high.id);
+    expect(body.data[1].id).toBe(low.id);
+  });
+
+  it("sortBy=profit ranks analyzed listings by estimatedProfit", async () => {
+    const lowProfit = await createTestListing(testApp.prisma, { title: "Low profit" });
+    const highProfit = await createTestListing(testApp.prisma, { title: "High profit" });
+    await createTestAnalysis(testApp.prisma, lowProfit.id, { estimatedProfit: 5 });
+    await createTestAnalysis(testApp.prisma, highProfit.id, { estimatedProfit: 80 });
+
+    const response = await testApp.app.inject({ method: "GET", url: "/listings?sortBy=profit" });
+
+    const body = response.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].id).toBe(highProfit.id);
+    expect(body.data[1].id).toBe(lowProfit.id);
   });
 });
 

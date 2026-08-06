@@ -57,7 +57,11 @@ describe("listings.service", () => {
 
       const result = await service.list(2, 10);
 
-      expect(listingsRepository.findMany).toHaveBeenCalledWith({ skip: 10, take: 10 });
+      expect(listingsRepository.findMany).toHaveBeenCalledWith({
+        skip: 10,
+        take: 10,
+        sortBy: "newest",
+      });
       expect(result).toEqual({
         items: [{ ...listing, createdAt: listing.createdAt.toISOString(), analysis: null }],
         total: 1,

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { idParamSchema, paginationQuerySchema } from "@vinted-hunter/shared";
+import { idParamSchema, listingsQuerySchema, paginationQuerySchema } from "@vinted-hunter/shared";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { success } from "../../utils/response.js";
 import { createFavoritesRepository } from "./favorites.repository.js";
@@ -15,10 +15,10 @@ export async function listingsController(fastify: FastifyInstance): Promise<void
 
   app.get(
     "/listings",
-    { schema: { querystring: paginationQuerySchema } },
+    { schema: { querystring: listingsQuerySchema } },
     async (request, reply) => {
-      const { page, limit } = request.query;
-      const result = await listingsService.list(page, limit);
+      const { page, limit, sortBy } = request.query;
+      const result = await listingsService.list(page, limit, sortBy);
       reply.send(
         success(result.items, { total: result.total, page: result.page, limit: result.limit }),
       );

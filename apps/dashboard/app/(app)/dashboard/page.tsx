@@ -1,15 +1,27 @@
 "use client";
 
-import { CalendarClock, Heart, PiggyBank, ShoppingBag, Target, TrendingUp } from "lucide-react";
+import {
+  CalendarClock,
+  Heart,
+  Percent,
+  PiggyBank,
+  ShoppingBag,
+  Target,
+  TrendingUp,
+  Trophy,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/dashboard/KpiCard";
-import { SearchActivityChart } from "@/components/dashboard/SearchActivityChart";
+import { DailyActivityChart } from "@/components/dashboard/DailyActivityChart";
 import { BrandDistributionChart } from "@/components/dashboard/BrandDistributionChart";
-import { IntelligencePreviewCard } from "@/components/dashboard/IntelligencePreviewCard";
+import { CategoryHeatmap } from "@/components/dashboard/CategoryHeatmap";
+import { ListingGrid } from "@/components/listings/ListingGrid";
+import { EmptyState } from "@/components/common/EmptyState";
 import { useSearches } from "@/hooks/useSearches";
 import { useListings } from "@/hooks/useListings";
 import { useFavoriteListings } from "@/hooks/useFavorites";
 import { usePurchaseStats } from "@/hooks/usePurchases";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { formatPrice, formatRelativeDate } from "@/utils/format";
 
 export default function DashboardPage() {
@@ -19,6 +31,9 @@ export default function DashboardPage() {
   // into a single shared query rather than firing a second request.
   const { data: favoritesPage } = useFavoriteListings(1, 100);
   const { data: purchaseStats, isLoading: purchaseStatsLoading } = usePurchaseStats();
+  const { data: dashboardStats, isLoading: dashboardStatsLoading } = useDashboardStats();
+  const { data: bestDeals } = useListings(1, 8, "score");
+  const { data: bestMargins } = useListings(1, 8, "profit");
 
   const isLoading = searchesLoading || listingsLoading;
   const enabledCount = searches?.filter((search) => search.enabled).length ?? 0;
@@ -88,14 +103,71 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
+      {dashboardStatsLoading ? (
+        <div className="grid grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : dashboardStats ? (
+        <div className="grid grid-cols-2 gap-4">
+          <KpiCard
+            label="ROI moyen"
+            value={
+              dashboardStats.averages.averageRoi != null
+                ? `${dashboardStats.averages.averageRoi >= 0 ? "+" : ""}${Math.round(dashboardStats.averages.averageRoi)}%`
+                : "—"
+            }
+            icon={Percent}
+          />
+          <KpiCard
+            label="Taux de réussite"
+            value={
+              dashboardStats.successRate != null
+                ? `${Math.round(dashboardStats.successRate)}%`
+                : "—"
+            }
+            icon={Trophy}
+          />
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-3">
-        <SearchActivityChart searches={searches ?? []} />
+        <DailyActivityChart data={dashboardStats?.dailyActivity ?? []} />
         <div className="sm:col-span-2">
-          <BrandDistributionChart listings={listingsPage?.items ?? []} />
+          <BrandDistributionChart data={dashboardStats?.brandDistribution ?? []} />
         </div>
         <div className="sm:col-span-3">
-          <IntelligencePreviewCard />
+          <CategoryHeatmap data={dashboardStats?.categoryBreakdown ?? []} />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="font-display text-sm font-semibold text-text-primary">
+          Meilleures affaires
+        </h2>
+        {bestDeals && bestDeals.items.length > 0 ? (
+          <ListingGrid listings={bestDeals.items} />
+        ) : (
+          <EmptyState
+            title="No analyzed listings yet"
+            description="The best-scored listings will appear here once analysis has run."
+          />
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="font-display text-sm font-semibold text-text-primary">
+          Meilleures marges
+        </h2>
+        {bestMargins && bestMargins.items.length > 0 ? (
+          <ListingGrid listings={bestMargins.items} />
+        ) : (
+          <EmptyState
+            title="No analyzed listings yet"
+            description="The highest-margin listings will appear here once analysis has run."
+          />
+        )}
       </div>
     </div>
   );
