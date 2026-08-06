@@ -69,6 +69,14 @@ export default function ListingDetailPage() {
                 {formatPrice(listing.analysis.maxBuyPrice, listing.currency)}
               </span>
             </p>
+            <p className="text-xs text-text-tertiary">
+              Intervalle probable{" "}
+              <span className="font-numeric text-text-secondary">
+                {formatPrice(listing.analysis.estimatedValueLow, listing.currency)}–
+                {formatPrice(listing.analysis.estimatedValueHigh, listing.currency)}
+              </span>{" "}
+              · confiance {listing.analysis.confidence}%
+            </p>
           </div>
         ) : (
           <AnalysisPendingBadge />

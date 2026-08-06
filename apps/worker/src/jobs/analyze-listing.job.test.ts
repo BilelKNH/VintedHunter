@@ -113,6 +113,32 @@ describe('analyze-listing job processor', () => {
     expect(stored?.score).toBe(result.score);
   });
 
+  it('folds a manually-recorded comparable into the market estimate and persists the confidence interval', async () => {
+    const listing = await createListing({ price: 50 });
+    const user = await prisma.user.create({
+      data: { email: `${Date.now()}-${Math.random()}@example.com`, password: 'hash' },
+    });
+    await prisma.manualComparable.create({
+      data: { userId: user.id, listingId: listing.id, price: 74, sourceName: 'eBay' },
+    });
+    const processor = createAnalyzeListingProcessor({
+      prisma,
+      comparableListingsRepository: createComparableListingsRepository(prisma),
+      analysisRepository: createAnalysisRepository(prisma),
+      notificationQueue,
+    });
+
+    await processor(fakeJob({ listingId: listing.id }));
+
+    const stored = await prisma.analysis.findUnique({ where: { listingId: listing.id } });
+    // The manual comparable is the only market data available — the estimate must be pulled
+    // toward it, not left at the listing's own unverified price.
+    expect(stored?.estimatedValue).toBeGreaterThan(50);
+    expect(stored?.confidence).toBeGreaterThan(0);
+    expect(stored?.estimatedValueLow).not.toBeNull();
+    expect(stored?.estimatedValueHigh).not.toBeNull();
+  });
+
   it('defaults to a 30% target margin (matching Search.targetRoi) when the job carries no targetRoi', async () => {
     const listing = await createListing({ price: 50 });
     const processor = createAnalyzeListingProcessor({

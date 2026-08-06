@@ -11,6 +11,11 @@ export interface ListingAnalysisSummary {
   // Highest price to pay for a resale at estimatedValue to still clear the triggering search's
   // target ROI (see packages/analyzer's compute-score.ts).
   maxBuyPrice: number;
+  // Weighted-stddev interval around estimatedValue and a 0-100 confidence score — Phase 2's
+  // market aggregator (see packages/pricing-engine's factors/confidence.ts).
+  estimatedValueLow: number;
+  estimatedValueHigh: number;
+  confidence: number;
 }
 
 // Mirrors the Prisma Listing model as it's actually shaped over the wire — date fields are

@@ -21,6 +21,12 @@ export interface ListingForAnalysis {
 export interface MarketContext {
   estimatedValue: number;
   comparableCount: number;
+  // Passthrough from @vinted-hunter/pricing-engine's MarketPriceEstimate — see
+  // packages/pricing-engine/src/factors/confidence.ts. Not used in scoring itself, just carried
+  // through to AnalysisResult for persistence/display.
+  estimatedValueLow: number;
+  estimatedValueHigh: number;
+  confidence: number;
 }
 
 // Phase 6: real image-derived signals from packages/ai-engine's Claude Vision analysis.
@@ -58,6 +64,9 @@ export interface AnalysisResult {
   liquidityScore: number;
   authenticityScore: number;
   estimatedValue: number;
+  estimatedValueLow: number;
+  estimatedValueHigh: number;
+  confidence: number;
   estimatedProfit: number;
   roi: number; // percentage, e.g. 150 means +150% — matches §47's "ROI > 100%" literally
   // Highest price to pay so a resale at estimatedValue still clears targetRoi.

@@ -1,7 +1,10 @@
 import type { PrismaClient } from '@vinted-hunter/database';
+import type { ComparableSource } from '@vinted-hunter/pricing-engine';
 
 export interface Comparable {
   price: number;
+  source: ComparableSource;
+  observedAt: string;
 }
 
 export interface ComparableListingsRepository {
@@ -16,6 +19,10 @@ export interface ComparableListingsRepository {
     // analyzed yet — in which case behavior is byte-identical to before this field existed.
     embedding?: number[] | null;
   }): Promise<Comparable[]>;
+  // Phase 2: prices a user recorded for this exact listing elsewhere (ManualComparable) — a
+  // direct external observation, weighted higher than 'internal' comparables in
+  // estimateMarketPrice (see packages/pricing-engine/src/factors/source-weight.ts).
+  findManualComparables(listingId: string): Promise<Comparable[]>;
 }
 
 const DEFAULT_LIMIT = 20;
@@ -36,6 +43,15 @@ function toVectorLiteral(embedding: number[]): string {
   return `[${embedding.join(',')}]`;
 }
 
+interface RawComparableRow {
+  price: number;
+  createdAt: Date;
+}
+
+function toComparable(row: RawComparableRow): Comparable {
+  return { price: row.price, source: 'internal', observedAt: row.createdAt.toISOString() };
+}
+
 // §24/§25: originally matched by brand+category against Postgres only ("vector similarity is
 // Phase 6, §59-60" — this is that phase). The brand/category path below is kept as the fallback
 // for listings without an embedding yet, so existing behavior never regresses.
@@ -46,20 +62,21 @@ export function createComparableListingsRepository(
     async findComparables({ excludeListingId, brand, category, limit = DEFAULT_LIMIT, embedding }) {
       if (embedding && embedding.length > 0) {
         const vectorLiteral = toVectorLiteral(embedding);
-        return prisma.$queryRaw<Comparable[]>`
-          SELECT "price" FROM "listings"
+        const rows = await prisma.$queryRaw<RawComparableRow[]>`
+          SELECT "price", "createdAt" FROM "listings"
           WHERE "id" != ${excludeListingId}
             AND "embedding" IS NOT NULL
             AND ("embedding" OPERATOR(public.<=>) ${vectorLiteral}::public.vector) < ${MAX_COSINE_DISTANCE}
           ORDER BY "embedding" OPERATOR(public.<=>) ${vectorLiteral}::public.vector
           LIMIT ${limit}
         `;
+        return rows.map(toComparable);
       }
 
       if (!brand && !category) {
         return [];
       }
-      return prisma.listing.findMany({
+      const rows = await prisma.listing.findMany({
         where: {
           id: { not: excludeListingId },
           ...(brand ? { brand: { equals: brand, mode: 'insensitive' } } : {}),
@@ -67,8 +84,21 @@ export function createComparableListingsRepository(
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
-        select: { price: true },
+        select: { price: true, createdAt: true },
       });
+      return rows.map(toComparable);
+    },
+
+    async findManualComparables(listingId) {
+      const rows = await prisma.manualComparable.findMany({
+        where: { listingId },
+        select: { price: true, createdAt: true },
+      });
+      return rows.map((row) => ({
+        price: row.price,
+        source: 'manual' as const,
+        observedAt: row.createdAt.toISOString(),
+      }));
     },
   };
 }

@@ -184,6 +184,12 @@ model Analysis {
   liquidityScore    Int
   authenticityScore Int
   estimatedValue    Float
+  // Weighted-stddev interval around estimatedValue and a 0-100 confidence score — Phase 2's
+  // market aggregator (packages/pricing-engine's factors/confidence.ts). Always computed
+  // alongside estimatedValue, never best-effort, so these are NOT NULL like it.
+  estimatedValueLow  Float
+  estimatedValueHigh Float
+  confidence         Int
   estimatedProfit   Float
   roi               Float
   // Highest price to pay so a resale at estimatedValue still clears the triggering search's

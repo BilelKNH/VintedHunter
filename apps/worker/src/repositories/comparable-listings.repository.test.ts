@@ -74,6 +74,8 @@ describe('comparable-listings.repository', () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.price).toBe(comparable.price);
+    expect(results[0]?.source).toBe('internal');
+    expect(typeof results[0]?.observedAt).toBe('string');
   });
 
   it('matches brand case-insensitively', async () => {
@@ -143,6 +145,33 @@ describe('comparable-listings.repository', () => {
       category: null,
       embedding: vector(1, 0),
     });
+
+    expect(results).toEqual([]);
+  });
+});
+
+describe('findManualComparables', () => {
+  it("returns prices recorded for this listing, tagged as the 'manual' source", async () => {
+    const target = await createListing();
+    const user = await prisma.user.create({
+      data: { email: `${Date.now()}-${Math.random()}@example.com`, password: 'hash' },
+    });
+    await prisma.manualComparable.create({
+      data: { userId: user.id, listingId: target.id, price: 74, sourceName: 'eBay' },
+    });
+
+    const results = await repository.findManualComparables(target.id);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.price).toBe(74);
+    expect(results[0]?.source).toBe('manual');
+    expect(typeof results[0]?.observedAt).toBe('string');
+  });
+
+  it('returns an empty array when the listing has no manual comparables', async () => {
+    const target = await createListing();
+
+    const results = await repository.findManualComparables(target.id);
 
     expect(results).toEqual([]);
   });
