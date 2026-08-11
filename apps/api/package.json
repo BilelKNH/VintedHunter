@@ -20,7 +20,7 @@
     "@vinted-hunter/analyzer": "workspace:*",
     "@vinted-hunter/database": "workspace:*",
     "@vinted-hunter/shared": "workspace:*",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "bullmq": "^5.34.0",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.0.0",
@@ -29,7 +29,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.10.0",
     "dotenv-cli": "^8.0.0",
     "typescript": "^5.7.0",
