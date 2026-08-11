@@ -22,7 +22,7 @@
     "@vinted-hunter/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.34.0",
-    "fastify": "^5.2.0",
+    "fastify": "^5.11.3",
     "fastify-plugin": "^5.0.0",
     "fastify-type-provider-zod": "^4.0.0",
     "ioredis": "^5.4.0",
