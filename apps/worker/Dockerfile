@@ -2,7 +2,7 @@
 # shells out to `apt-get` to install Chromium's shared-lib dependencies, which doesn't exist on
 # Alpine (musl, no apt). Playwright doesn't officially support Alpine/musl for Chromium at all;
 # this isn't a style choice, the crawler cannot launch a browser without it.
-FROM node:22-slim
+FROM node:25-slim
 WORKDIR /repo
 
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
